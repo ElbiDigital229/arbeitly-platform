@@ -1,0 +1,50 @@
+services:
+  backend:
+    container_name: arbeitly-backend
+    build: .
+    ports:
+      - "2000:2000"
+    env_file:
+      - .env.production
+    depends_on:
+      - postgres
+      - minio
+      - valkey
+
+  postgres:
+    container_name: arbeitly-postgres
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: arbeitly
+      POSTGRES_PASSWORD: arbeitly
+      POSTGRES_DB: arbeitly
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  minio:
+    container_name: arbeitly-minio
+    image: minio/minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+
+  valkey:
+    container_name: arbeitly-valkey
+    image: valkey/valkey
+    ports:
+      - "6379:6379"
+    volumes:
+      - valkey_data:/data
+
+volumes:
+  postgres_data:
+  minio_data:
+  valkey_data:

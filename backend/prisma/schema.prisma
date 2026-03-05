@@ -1,0 +1,447 @@
+// ============================================================
+// Arbeitly – Prisma Schema
+// AI Job Application Automation Platform – V1
+// Stack: Express API + Vue.js SPA + PostgreSQL + Redis
+// ============================================================
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================================
+// ENUMS
+// ============================================================
+
+enum UserRole {
+  SUPER_ADMIN
+  INTERNAL_EMPLOYEE
+  CUSTOMER
+}
+
+enum ApplicationStatus {
+  APPLIED
+  INTERVIEW
+  REJECTED
+  OFFER
+}
+
+enum Language {
+  EN
+  DE
+}
+
+enum AiPromptType {
+  CV_OPTIMIZATION
+  COVER_LETTER
+  JOB_MATCHING
+  KEYWORD_EXTRACTION
+  TRANSLATION
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  TRIALING
+  PAST_DUE
+  CANCELED
+  UNPAID
+  INCOMPLETE
+}
+
+enum FileType {
+  PDF
+  DOCX
+}
+
+enum JobSource {
+  MOCK
+  LINKEDIN
+  INDEED
+  GOOGLE_JOBS
+  MANUAL
+}
+
+enum QueueJobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum AuditAction {
+  PROMPT_UPDATED
+  USER_ROLE_CHANGED
+  USER_DELETED
+  PLAN_UPDATED
+  SUBSCRIPTION_CHANGED
+  APPLICATION_STATUS_CHANGED
+  SETTINGS_CHANGED
+}
+
+// ============================================================
+// 1. USERS & AUTH
+// ============================================================
+
+model User {
+  id        String   @id @default(cuid())
+  auth0Id   String   @unique @map("auth0_id")
+  email     String   @unique
+  name      String?
+  role      UserRole @default(CUSTOMER)
+  isActive  Boolean  @default(true) @map("is_active")
+  avatarUrl String?  @map("avatar_url")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt      @map("updated_at")
+
+  subscription   Subscription?
+  cvUploads      CvUpload[]
+  cvOptimized    CvOptimized[]
+  coverLetters   CoverLetter[]
+  jobMatches     JobMatch[]
+  applications   Application[]
+  aiUsageLogs    AiUsageLog[]
+  auditLogs      AuditLog[]        @relation("AuditActor")
+  updatedPrompts AiPrompt[]        @relation("PromptUpdater")
+  promptHistory  AiPromptHistory[] @relation("PromptChanger")
+
+  @@index([auth0Id])
+  @@index([email])
+  @@index([role])
+  @@map("users")
+}
+
+// ============================================================
+// 2. CV ENGINE
+// ============================================================
+
+model CvUpload {
+  id               String   @id @default(cuid())
+  userId           String   @map("user_id")
+  originalFilename String   @map("original_filename")
+  filePath         String   @map("file_path")
+  fileType         FileType @map("file_type")
+  fileSize         Int?     @map("file_size")
+  rawText          String?  @map("raw_text")
+  language         Language @default(DE)
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  optimized CvOptimized[]
+
+  @@index([userId])
+  @@map("cv_uploads")
+}
+
+model CvOptimized {
+  id               String    @id @default(cuid())
+  cvUploadId       String    @map("cv_upload_id")
+  userId           String    @map("user_id")
+  jobId            String?   @map("job_id")
+  optimizedContent String    @map("optimized_content")
+  templateUsed     String?   @map("template_used")
+  language         Language  @default(DE)
+  version          Int       @default(1)
+  filePath         String?   @map("file_path")
+  fileType         FileType? @map("file_type")
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  cvUpload     CvUpload      @relation(fields: [cvUploadId], references: [id], onDelete: Cascade)
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  job          Job?          @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  applications Application[]
+
+  @@index([userId])
+  @@index([cvUploadId])
+  @@index([jobId])
+  @@map("cv_optimized")
+}
+
+model CvTemplate {
+  id             String  @id @default(cuid())
+  name           String
+  description    String?
+  templateMarkup String  @map("template_markup")
+  previewUrl     String? @map("preview_url")
+  isActive       Boolean @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt      @map("updated_at")
+
+  @@map("cv_templates")
+}
+
+// ============================================================
+// 3. COVER LETTER ENGINE
+// ============================================================
+
+model CoverLetter {
+  id       String    @id @default(cuid())
+  userId   String    @map("user_id")
+  cvId     String?   @map("cv_id")
+  jobId    String?   @map("job_id")
+  content  String
+  language Language  @default(DE)
+  version  Int       @default(1)
+  filePath String?   @map("file_path")
+  fileType FileType? @map("file_type")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt      @map("updated_at")
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  job          Job?          @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  applications Application[]
+
+  @@index([userId])
+  @@index([jobId])
+  @@map("cover_letters")
+}
+
+// ============================================================
+// 4. JOB DISCOVERY & MATCHING
+// ============================================================
+
+model Job {
+  id              String    @id @default(cuid())
+  title           String
+  company         String
+  location        String?
+  description     String?
+  qualifications  String?
+  experienceLevel String?   @map("experience_level")
+  salary          String?
+  source          JobSource @default(MOCK)
+  sourceUrl       String?   @map("source_url")
+  isActive        Boolean   @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt      @map("updated_at")
+
+  cvOptimized  CvOptimized[]
+  coverLetters CoverLetter[]
+  jobMatches   JobMatch[]
+  applications Application[]
+
+  @@index([source])
+  @@index([location])
+  @@index([company])
+  @@map("jobs")
+}
+
+model JobMatch {
+  id         String   @id @default(cuid())
+  userId     String   @map("user_id")
+  jobId      String   @map("job_id")
+  matchScore Float    @map("match_score")
+  reasoning  String?
+  matchedAt  DateTime @default(now()) @map("matched_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  job  Job  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, jobId])
+  @@index([userId])
+  @@index([matchScore])
+  @@map("job_matches")
+}
+
+// ============================================================
+// 5. APPLICATION TRACKING
+// ============================================================
+
+model Application {
+  id            String            @id @default(cuid())
+  userId        String            @map("user_id")
+  jobId         String            @map("job_id")
+  cvOptimizedId String?           @map("cv_optimized_id")
+  coverLetterId String?           @map("cover_letter_id")
+  status        ApplicationStatus @default(APPLIED)
+  notes         String?
+  appliedAt     DateTime          @default(now()) @map("applied_at")
+  updatedAt     DateTime          @updatedAt      @map("updated_at")
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  job         Job          @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  cvOptimized CvOptimized? @relation(fields: [cvOptimizedId], references: [id], onDelete: SetNull)
+  coverLetter CoverLetter? @relation(fields: [coverLetterId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([jobId])
+  @@index([status])
+  @@map("applications")
+}
+
+// ============================================================
+// 6. AI PROMPT MANAGEMENT (Super Admin)
+// ============================================================
+
+model AiPrompt {
+  id              String       @id @default(cuid())
+  type            AiPromptType
+  name            String
+  promptText      String       @map("prompt_text")
+  tone            String?
+  formattingRules String?      @map("formatting_rules")
+  keywordParams   String?      @map("keyword_params")
+  version         Int          @default(1)
+  isActive        Boolean      @default(true) @map("is_active")
+  updatedBy       String?      @map("updated_by")
+
+  updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  updater User?             @relation("PromptUpdater", fields: [updatedBy], references: [id], onDelete: SetNull)
+  history AiPromptHistory[]
+
+  @@unique([type, isActive])
+  @@index([type])
+  @@map("ai_prompts")
+}
+
+model AiPromptHistory {
+  id              String   @id @default(cuid())
+  aiPromptId      String   @map("ai_prompt_id")
+  promptText      String   @map("prompt_text")
+  tone            String?
+  formattingRules String?  @map("formatting_rules")
+  keywordParams   String?  @map("keyword_params")
+  version         Int
+  changedBy       String   @map("changed_by")
+  changedAt       DateTime @default(now()) @map("changed_at")
+
+  aiPrompt AiPrompt @relation(fields: [aiPromptId], references: [id], onDelete: Cascade)
+  changer  User     @relation("PromptChanger", fields: [changedBy], references: [id], onDelete: Cascade)
+
+  @@index([aiPromptId])
+  @@index([changedAt])
+  @@map("ai_prompt_history")
+}
+
+// ============================================================
+// 7. SUBSCRIPTIONS & BILLING (Stripe)
+// ============================================================
+
+model Plan {
+  id            String  @id @default(cuid())
+  name          String
+  stripePriceId String  @unique @map("stripe_price_id")
+  description   String?
+  features      Json    @default("[]")
+  price         Float?
+  currency      String  @default("EUR")
+  interval      String  @default("month")
+  trialDays     Int     @default(0) @map("trial_days")
+  isActive      Boolean @default(true) @map("is_active")
+  sortOrder     Int     @default(0) @map("sort_order")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt      @map("updated_at")
+
+  subscriptions Subscription[]
+
+  @@map("plans")
+}
+
+model Subscription {
+  id                   String             @id @default(cuid())
+  userId               String             @unique @map("user_id")
+  planId               String?            @map("plan_id")
+  stripeCustomerId     String             @unique @map("stripe_customer_id")
+  stripeSubscriptionId String?            @unique @map("stripe_subscription_id")
+  status               SubscriptionStatus @default(INCOMPLETE)
+  trialEnd             DateTime?          @map("trial_end")
+  currentPeriodStart   DateTime?          @map("current_period_start")
+  currentPeriodEnd     DateTime?          @map("current_period_end")
+  cancelAtPeriodEnd    Boolean            @default(false) @map("cancel_at_period_end")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt      @map("updated_at")
+
+  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan Plan? @relation(fields: [planId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([stripeCustomerId])
+  @@map("subscriptions")
+}
+
+// ============================================================
+// 8. AI USAGE TRACKING
+// ============================================================
+
+model AiUsageLog {
+  id           String       @id @default(cuid())
+  userId       String       @map("user_id")
+  promptType   AiPromptType @map("prompt_type")
+  model        String       @default("gpt-4")
+  inputTokens  Int          @map("input_tokens")
+  outputTokens Int          @map("output_tokens")
+  totalTokens  Int          @map("total_tokens")
+  durationMs   Int?         @map("duration_ms")
+  success      Boolean      @default(true)
+  errorMessage String?      @map("error_message")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([promptType])
+  @@index([createdAt])
+  @@map("ai_usage_logs")
+}
+
+// ============================================================
+// 9. QUEUE JOBS (Redis-backed, DB for persistence/history)
+// ============================================================
+
+model QueueJob {
+  id          String         @id @default(cuid())
+  type        String
+  payload     Json
+  status      QueueJobStatus @default(PENDING)
+  attempts    Int            @default(0)
+  maxAttempts Int            @default(3) @map("max_attempts")
+  result      Json?
+  error       String?
+  scheduledAt DateTime?      @map("scheduled_at")
+  startedAt   DateTime?      @map("started_at")
+  completedAt DateTime?      @map("completed_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt      @map("updated_at")
+
+  @@index([status])
+  @@index([type])
+  @@index([createdAt])
+  @@map("queue_jobs")
+}
+
+// ============================================================
+// 10. AUDIT LOG
+// ============================================================
+
+model AuditLog {
+  id        String      @id @default(cuid())
+  actorId   String      @map("actor_id")
+  action    AuditAction
+  entity    String
+  entityId  String?     @map("entity_id")
+  details   Json?
+  ipAddress String?     @map("ip_address")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  actor User @relation("AuditActor", fields: [actorId], references: [id], onDelete: Cascade)
+
+  @@index([actorId])
+  @@index([action])
+  @@index([entity, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}

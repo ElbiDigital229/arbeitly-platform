@@ -1,0 +1,29 @@
+node_modules/
+dist/
+.output/
+
+# Environment files (keep .env.example)
+.env
+.env.local
+*.local
+
+# Prisma
+generated/
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+*.swp
+*.swo
+
+# Bun
+bun.lock
+
+# Build
+*.tsbuildinfo
