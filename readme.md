@@ -13,6 +13,18 @@ A modern job search platform for candidates. Track applications, manage CVs, and
 
 ---
 
+## Full Project Context
+
+See **[CONTEXT.md](CONTEXT.md)** for the complete project history — from the original `cv-builder` prototype through the legacy Laravel + React platform to this Express + Vue 3 rewrite. It includes:
+
+- What was ported from legacy and what's still missing
+- Legacy architecture reference (directory structures, DB schema)
+- Feature mapping table (legacy → rewrite with status)
+- Key differences between stacks
+- Instructions for running legacy code alongside the rewrite
+
+---
+
 ## Prerequisites
 
 - [Bun](https://bun.sh) >= 1.0 (runtime for backend + package manager)
