@@ -1,0 +1,120 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Arbeitly brand: deep navy (#043243) + cyan hsl(188,100%,44%) ── */
+:root {
+  --color-bg:        hsl(196, 89%, 14%);
+  --color-card:      hsl(196, 80%, 18%);
+  --color-secondary: hsl(196, 60%, 22%);
+  --color-border:    hsl(196, 40%, 22%);
+  --color-foreground: hsl(188, 10%, 95%);
+  --color-muted:     hsl(196, 20%, 55%);
+  --color-primary:   hsl(188, 100%, 44%);
+  --color-primary-fg: hsl(196, 89%, 14%);
+  --color-destructive: hsl(0, 72%, 51%);
+  --color-success:     hsl(152, 60%, 42%);
+  --color-warning:     hsl(38, 92%, 50%);
+  --color-info:        hsl(210, 80%, 52%);
+  --color-input-bg:  hsl(196, 89%, 9%);
+  --color-sidebar-bg: hsl(196, 89%, 10%);
+  --color-sidebar-border: hsl(196, 50%, 18%);
+  --color-overlay:   rgba(0, 0, 0, 0.6);
+
+  /* Raw HSL channels for Tailwind opacity modifier support */
+  --color-bg-raw:           196 89% 14%;
+  --color-card-raw:         196 80% 18%;
+  --color-secondary-raw:    196 60% 22%;
+  --color-border-raw:       196 40% 22%;
+  --color-fg-raw:           188 10% 95%;
+  --color-muted-raw:        196 20% 55%;
+  --color-primary-raw:      188 100% 44%;
+  --color-primary-fg-raw:   196 89% 14%;
+  --color-destructive-raw:  0 72% 51%;
+  --color-success-raw:      152 60% 42%;
+  --color-warning-raw:      38 92% 50%;
+  --color-info-raw:         210 80% 52%;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body, #app {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--color-bg);
+  color: var(--color-foreground);
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+}
+
+/* ── Glass morphism ── */
+.glass {
+  background: hsl(196 80% 18% / 0.7);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid hsl(196 40% 22% / 0.5);
+}
+
+/* ── Utilities ── */
+.bg-hero-radial {
+  background: radial-gradient(ellipse at 50% 30%, hsl(196 60% 22%) 0%, hsl(196 89% 10%) 70%);
+}
+.text-gradient {
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  background-image: linear-gradient(135deg, hsl(188 100% 44%), hsl(188 80% 55%));
+}
+.glow-accent {
+  box-shadow: 0 0 40px -10px hsl(188 100% 44% / 0.4);
+}
+
+/* ── Landing page backgrounds ── */
+.bg-hero {
+  background: hsl(196, 89%, 14%);
+}
+.bg-section-light {
+  background: hsl(196, 80%, 18%);
+}
+
+/* ── Shared form input ── */
+.input-field {
+  display: block;
+  width: 100%;
+  height: 2.5rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-input-bg);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  color: var(--color-foreground);
+  outline: none;
+  transition: box-shadow 0.15s;
+}
+.input-field::placeholder { color: var(--color-muted); }
+.input-field:focus { box-shadow: 0 0 0 2px var(--color-primary); }
+.input-field-sm { height: 2rem; font-size: 0.75rem; }
+
+/* ── Modal overlay ── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: var(--color-overlay);
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: hsl(196 40% 28%); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: hsl(196 40% 35%); }
