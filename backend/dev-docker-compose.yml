@@ -27,6 +27,28 @@ services:
     volumes:
       - minio_data:/data
 
+  nats:
+    image: nats:2-alpine
+    command: ["--jetstream", "--store_dir=/data"]
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+    volumes:
+      - nats_data:/data
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+
 volumes:
   postgres_data:
   minio_data:
+  nats_data:
+  caddy_data:
+  caddy_config:

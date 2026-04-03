@@ -15,7 +15,17 @@ const envSchema = z.object({
   MINIO_SECRET_KEY: z.string().default('minioadmin'),
   MINIO_BUCKET: z.string().default('arbeitly'),
   VALKEY_URL: z.string().default('redis://localhost:6379'),
-  PORT: z.coerce.number().default(3000),
+  NATS_URL: z.string().default('nats://localhost:4222'),
+  STRIPE_SECRET_KEY: z.string().default('sk_test_placeholder'),
+  STRIPE_WEBHOOK_SECRET: z.string().default('whsec_placeholder'),
+  STRIPE_PRICE_STARTER: z.string().default('price_placeholder'),
+  STRIPE_PRICE_PROFESSIONAL: z.string().default('price_placeholder'),
+  STRIPE_PRICE_ENTERPRISE: z.string().default('price_placeholder'),
+  AUTH0_DOMAIN: z.string().default('your-tenant.auth0.com'),
+  AUTH0_AUDIENCE: z.string().default('https://api.arbeitly.com'),
+  AUTH0_CLIENT_ID: z.string().default('placeholder'),
+  AUTH0_CLIENT_SECRET: z.string().default('placeholder'),
+  PORT: z.coerce.number().default(4000),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
 });
 

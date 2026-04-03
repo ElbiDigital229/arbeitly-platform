@@ -1,4 +1,46 @@
-localhost {
-  reverse_proxy /api/* localhost:3000
-  reverse_proxy /* localhost:5173
+{
+	# Global options
+	admin off
 }
+
+# Development: localhost
+localhost {
+	# Stripe webhook needs raw body — pass through without modification
+	@webhook path /api/payments/webhook
+	reverse_proxy @webhook localhost:4000 {
+		header_up X-Forwarded-Proto {scheme}
+	}
+
+	# API routes → Express backend
+	@api path /api/*
+	reverse_proxy @api localhost:4000 {
+		header_up X-Forwarded-Proto {scheme}
+		header_up X-Real-IP {remote_host}
+	}
+
+	# Everything else → Vite dev server (frontend)
+	reverse_proxy localhost:5173 {
+		header_up X-Forwarded-Proto {scheme}
+	}
+}
+
+# Production: uncomment and replace with your domain
+# arbeitly.com {
+# 	# Automatic HTTPS via Let's Encrypt
+#
+# 	@webhook path /api/payments/webhook
+# 	reverse_proxy @webhook app:4000 {
+# 		header_up X-Forwarded-Proto {scheme}
+# 	}
+#
+# 	@api path /api/*
+# 	reverse_proxy @api app:4000 {
+# 		header_up X-Forwarded-Proto {scheme}
+# 		header_up X-Real-IP {remote_host}
+# 	}
+#
+# 	# Serve static frontend files
+# 	root * /srv/frontend
+# 	file_server
+# 	try_files {path} /index.html
+# }

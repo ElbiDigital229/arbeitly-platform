@@ -9,6 +9,7 @@ import './style.css';
 
 import App from './App.vue';
 import router from './router/index';
+import { auth0Plugin } from './plugins/auth0';
 
 const vuetify = createVuetify({
   components,
@@ -41,4 +42,5 @@ const app = createApp(App);
 app.use(pinia);
 app.use(vuetify);
 app.use(router);
+if (auth0Plugin) app.use(auth0Plugin);
 app.mount('#app');

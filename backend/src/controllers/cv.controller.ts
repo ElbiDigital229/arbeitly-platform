@@ -2,6 +2,7 @@ import type { RequestHandler } from 'express';
 import { cvService } from '../services/cv.service.js';
 import { success } from '../utils/response.js';
 import { HttpError } from '../errors/HttpError.js';
+import { invalidateUserCache } from '../utils/cache.js';
 
 export const cvController = {
   uploadCV: (async (req, res, next) => {
@@ -14,6 +15,7 @@ export const cvController = {
         return next(HttpError.badRequest('Title is required'));
       }
       const cv = await cvService.uploadAndParseCV(req.user!.id, title, req.file);
+      await invalidateUserCache(req.user!.id, '/api/cvs');
       success(res, cv, 201);
     } catch (err) {
       next(err);
@@ -23,6 +25,7 @@ export const cvController = {
   createCV: (async (req, res, next) => {
     try {
       const cv = await cvService.createCV(req.user!.id, req.body);
+      await invalidateUserCache(req.user!.id, '/api/cvs');
       success(res, cv, 201);
     } catch (err) {
       next(err);
@@ -50,6 +53,7 @@ export const cvController = {
   updateCV: (async (req, res, next) => {
     try {
       const cv = await cvService.updateCV(req.user!.id, req.params.id, req.body);
+      await invalidateUserCache(req.user!.id, '/api/cvs');
       success(res, cv);
     } catch (err) {
       next(err);
@@ -59,6 +63,7 @@ export const cvController = {
   deleteCV: (async (req, res, next) => {
     try {
       await cvService.deleteCV(req.user!.id, req.params.id);
+      await invalidateUserCache(req.user!.id, '/api/cvs');
       success(res, { message: 'CV deleted successfully' });
     } catch (err) {
       next(err);

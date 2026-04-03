@@ -4,6 +4,7 @@ import profileRoutes from './profile.routes.js';
 import cvRoutes from './cv.routes.js';
 import applicationRoutes from './application.routes.js';
 import onboardingRoutes from './onboarding.routes.js';
+import paymentRoutes from './payment.routes.js';
 
 const router = Router();
 
@@ -12,6 +13,7 @@ router.use('/profile', profileRoutes);
 router.use('/cvs', cvRoutes);
 router.use('/applications', applicationRoutes);
 router.use('/onboarding', onboardingRoutes);
+router.use('/payments', paymentRoutes);
 
 // Health check
 router.get('/health', (_req, res) => {

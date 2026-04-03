@@ -81,9 +81,36 @@
           </button>
         </form>
 
-        <p class="mt-6 text-center text-xs" style="color: var(--color-muted);">
+        <!-- Separator -->
+        <div class="my-5 flex items-center gap-3">
+          <div class="flex-1 h-px bg-border" />
+          <span class="text-xs text-muted-foreground">or</span>
+          <div class="flex-1 h-px bg-border" />
+        </div>
+
+        <!-- Social signup buttons (shown when Auth0 is configured) -->
+        <div v-if="auth0Available" class="space-y-2.5 mb-4">
+          <button
+            type="button"
+            @click="signupWithGoogle"
+            class="w-full h-10 rounded-full border border-border text-foreground text-sm font-medium transition-colors hover:bg-secondary/60 bg-transparent flex items-center justify-center gap-2"
+          >
+            <span class="mdi mdi-google text-lg" />
+            Sign up with Google
+          </button>
+          <button
+            type="button"
+            @click="signupWithLinkedIn"
+            class="w-full h-10 rounded-full border border-border text-foreground text-sm font-medium transition-colors hover:bg-secondary/60 bg-transparent flex items-center justify-center gap-2"
+          >
+            <span class="mdi mdi-linkedin text-lg" />
+            Sign up with LinkedIn
+          </button>
+        </div>
+
+        <p class="mt-6 text-center text-xs text-muted">
           Already have an account?
-          <router-link to="/login" class="hover:underline" style="color: var(--color-primary);">Sign in</router-link>
+          <router-link to="/login" class="text-primary hover:underline">Sign in</router-link>
         </p>
       </div>
     </div>
@@ -94,6 +121,8 @@
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
+import { isAuth0Configured } from '../plugins/auth0';
+import { useAuth0 } from '@auth0/auth0-vue';
 
 const auth = useAuthStore();
 const router = useRouter();
@@ -102,6 +131,19 @@ const password = ref('');
 const confirmPassword = ref('');
 const loading = ref(false);
 const apiError = ref('');
+const auth0Available = isAuth0Configured;
+
+function signupWithGoogle() {
+  if (!isAuth0Configured) return;
+  const { loginWithRedirect } = useAuth0();
+  loginWithRedirect({ authorizationParams: { connection: 'google-oauth2', screen_hint: 'signup' } });
+}
+
+function signupWithLinkedIn() {
+  if (!isAuth0Configured) return;
+  const { loginWithRedirect } = useAuth0();
+  loginWithRedirect({ authorizationParams: { connection: 'linkedin', screen_hint: 'signup' } });
+}
 
 async function handleRegister() {
   apiError.value = '';

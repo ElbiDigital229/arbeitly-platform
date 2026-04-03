@@ -8,6 +8,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@auth0/auth0-vue": "^2.5.0",
     "@mdi/font": "^7.4.47",
     "axios": "^1.7.9",
     "pinia": "^2.3.1",

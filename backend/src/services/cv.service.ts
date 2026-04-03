@@ -6,6 +6,7 @@ import { cvRepository } from '../repositories/cv.repository.js';
 import { aiService } from './ai.service.js';
 import { HttpError } from '../errors/HttpError.js';
 import { extractLargestImage } from './pdf-image.service.js';
+import { publishEvent } from './eventbus.service.js';
 import { prisma } from '../config/prisma.js';
 import type { CreateCVDtoType, UpdateCVDtoType } from '../dtos/cv.dto.js';
 import type { ParsedCVData } from './ai.service.js';
@@ -68,12 +69,14 @@ export const cvService = {
       user: { connect: { id: userId } },
     });
 
+    publishEvent('events.cv.parsed', { cvId: cv.id, userId });
+
     return cv;
   },
 
   async createCV(userId: string, dto: CreateCVDtoType) {
     await checkAndIncrementCvQuota(userId);
-    return cvRepository.create({
+    const cv = await cvRepository.create({
       title: dto.title,
       editorData: dto.editorData ?? undefined,
       htmlContent: dto.htmlContent ?? undefined,
@@ -81,6 +84,10 @@ export const cvService = {
       language: dto.language ?? undefined,
       user: { connect: { id: userId } },
     });
+
+    publishEvent('events.cv.created', { cvId: cv.id, userId });
+
+    return cv;
   },
 
   async getCVs(userId: string) {

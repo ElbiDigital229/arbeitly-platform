@@ -75,6 +75,26 @@
           <div class="flex-1 h-px bg-border" />
         </div>
 
+        <!-- Social login buttons (shown when Auth0 is configured) -->
+        <div v-if="auth0Available" class="space-y-2.5 mb-4">
+          <button
+            type="button"
+            @click="loginWithGoogle"
+            class="w-full h-10 rounded-full border border-border text-foreground text-sm font-medium transition-colors hover:bg-secondary/60 bg-transparent flex items-center justify-center gap-2"
+          >
+            <span class="mdi mdi-google text-lg" />
+            Continue with Google
+          </button>
+          <button
+            type="button"
+            @click="loginWithLinkedIn"
+            class="w-full h-10 rounded-full border border-border text-foreground text-sm font-medium transition-colors hover:bg-secondary/60 bg-transparent flex items-center justify-center gap-2"
+          >
+            <span class="mdi mdi-linkedin text-lg" />
+            Continue with LinkedIn
+          </button>
+        </div>
+
         <p class="text-right -mt-2">
           <router-link to="/candidate/forgot-password" class="text-xs text-primary hover:underline">
             Forgot password?
@@ -102,6 +122,8 @@
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
+import { isAuth0Configured } from '../plugins/auth0';
+import { useAuth0 } from '@auth0/auth0-vue';
 
 const auth = useAuthStore();
 const router = useRouter();
@@ -109,6 +131,19 @@ const email = ref('');
 const password = ref('');
 const loading = ref(false);
 const apiError = ref('');
+const auth0Available = isAuth0Configured;
+
+function loginWithGoogle() {
+  if (!isAuth0Configured) return;
+  const { loginWithRedirect } = useAuth0();
+  loginWithRedirect({ authorizationParams: { connection: 'google-oauth2' } });
+}
+
+function loginWithLinkedIn() {
+  if (!isAuth0Configured) return;
+  const { loginWithRedirect } = useAuth0();
+  loginWithRedirect({ authorizationParams: { connection: 'linkedin' } });
+}
 
 async function handleLogin() {
   apiError.value = '';

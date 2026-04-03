@@ -149,14 +149,15 @@ arbeitly-platform/
 | Backend | Express 4, TypeScript (strict) |
 | Database | PostgreSQL 16, Prisma 6 |
 | Validation | Zod |
-| Auth | JWT + bcryptjs (Auth0 planned) |
+| Auth | JWT + bcryptjs + Auth0 (dual-mode) |
 | File Storage | MinIO (S3-compatible) |
-| Cache | Valkey (Redis-compatible) via ioredis |
+| Cache | Valkey (Redis-compatible) via ioredis + cache middleware |
+| Rate Limiting | express-rate-limit + Valkey store |
 | AI | Anthropic Claude API (CV parsing — 30+ fields) |
 | PDF | PDFKit (generation), pdfjs-dist (parsing), Sharp (images) |
 | Frontend | Vue 3, Vite 6, Vuetify 3, Tailwind CSS 3, Pinia |
-| Payments | Stripe (planned) |
-| Messaging | NATS JetStream (planned) |
+| Payments | Stripe (checkout, portal, webhooks) |
+| Messaging | NATS JetStream (event bus) |
 | Reverse Proxy | Caddy |
 | Containers | Docker, Docker Compose |
 
@@ -204,6 +205,14 @@ arbeitly-platform/
 | PUT | /api/applications/:id | Yes | Update application |
 | DELETE | /api/applications/:id | Yes | Delete application |
 
+### Payments
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | /api/payments/create-checkout | Yes | Create Stripe checkout session |
+| POST | /api/payments/webhook | No | Stripe webhook handler |
+| POST | /api/payments/portal | Yes | Create Stripe billing portal session |
+| GET | /api/payments/subscription | Yes | Get current subscription |
+
 ### Health
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
@@ -228,13 +237,26 @@ arbeitly-platform/
 | MINIO_SECRET_KEY | No | minioadmin | MinIO secret key |
 | MINIO_BUCKET | No | arbeitly | MinIO bucket |
 | VALKEY_URL | No | redis://localhost:6379 | Valkey/Redis URL |
+| NATS_URL | No | nats://localhost:4222 | NATS JetStream URL |
 | PORT | No | 4000 | API server port |
+| STRIPE_SECRET_KEY | No | sk_test_placeholder | Stripe secret key |
+| STRIPE_WEBHOOK_SECRET | No | whsec_placeholder | Stripe webhook signing secret |
+| STRIPE_PRICE_STARTER | No | price_placeholder | Stripe price ID for Starter plan |
+| STRIPE_PRICE_PROFESSIONAL | No | price_placeholder | Stripe price ID for Professional plan |
+| STRIPE_PRICE_ENTERPRISE | No | price_placeholder | Stripe price ID for Enterprise plan |
+| AUTH0_DOMAIN | No | your-tenant.auth0.com | Auth0 tenant domain |
+| AUTH0_AUDIENCE | No | https://api.arbeitly.com | Auth0 API audience |
+| AUTH0_CLIENT_ID | No | placeholder | Auth0 client ID |
+| AUTH0_CLIENT_SECRET | No | placeholder | Auth0 client secret |
 
 ### Frontend (`frontend/.env.local`)
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | VITE_API_URL | No | http://localhost:4000 | API target (used by Vite proxy) |
+| VITE_AUTH0_DOMAIN | No | — | Auth0 tenant domain |
+| VITE_AUTH0_CLIENT_ID | No | — | Auth0 client ID |
+| VITE_AUTH0_AUDIENCE | No | — | Auth0 API audience |
 
 ---
 
@@ -247,6 +269,8 @@ Started via `docker compose -f backend/dev-docker-compose.yml up -d`:
 | PostgreSQL 16 | 5432 | arbeitly / arbeitly / arbeitly |
 | Valkey (Redis) | 6379 | — |
 | MinIO (S3) | 9000 (API), 9001 (Console) | minioadmin / minioadmin |
+| NATS JetStream | 4222 (client), 8222 (monitoring) | — |
+| Caddy | 80 (HTTP), 443 (HTTPS) | — |
 
 ---
 
@@ -261,6 +285,11 @@ Started via `docker compose -f backend/dev-docker-compose.yml up -d`:
 - 6 Extra Application Fields — salary, contact person, next action, job description, CV used, references
 - Usage Limits — configurable CV creation quota per user
 - Full Tailwind Design System — dark navy theme with cyan accents
+- Valkey Cache + Rate Limiting — cached GET responses with X-Cache header, 10 req/15min on auth
+- NATS JetStream Event Bus — async events for user registration, CV parsing, application status
+- Stripe Payments — checkout, billing portal, webhook handler (plug in API keys to activate)
+- Auth0 SSO — dual-mode auth (local JWT + Auth0), Google/LinkedIn social login buttons
+- Caddy Reverse Proxy — automatic HTTPS, routes /api to backend and /* to frontend
 
 ---
 

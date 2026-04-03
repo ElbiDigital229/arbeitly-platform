@@ -3,6 +3,7 @@ import { profileRepository } from '../repositories/profile.repository.js';
 import { hashPassword, comparePassword } from '../utils/hash.js';
 import { signToken } from '../utils/jwt.js';
 import { HttpError } from '../errors/HttpError.js';
+import { publishEvent } from './eventbus.service.js';
 import type { RegisterDtoType, LoginDtoType } from '../dtos/auth.dto.js';
 
 export const authService = {
@@ -24,6 +25,9 @@ export const authService = {
 
     const token = signToken({ id: user.id, email: user.email, role: user.role });
     const fullUser = await userRepository.findByIdWithProfile(user.id);
+
+    publishEvent('events.user.registered', { userId: user.id, email: user.email });
+
     return { token, user: { id: fullUser!.id, email: fullUser!.email, role: fullUser!.role, createdAt: fullUser!.createdAt, profile: fullUser!.profile } };
   },
 
@@ -59,6 +63,21 @@ export const authService = {
         cvCreationsUsed: user.profile.cvCreationsUsed,
       } : null,
     };
+  },
+
+  async findOrCreateAuth0User(email: string, name?: string) {
+    let user = await userRepository.findByEmail(email);
+    if (!user) {
+      const randomPassword = crypto.randomUUID();
+      user = await userRepository.create({ email, password: randomPassword });
+      await profileRepository.create({
+        firstName: name?.split(' ')[0] ?? '',
+        lastName: name?.split(' ').slice(1).join(' ') ?? '',
+        user: { connect: { id: user.id } },
+      });
+      publishEvent('events.user.registered', { userId: user.id, email, source: 'auth0' });
+    }
+    return user;
   },
 
   async changePassword(userId: string, currentPassword: string, newPassword: string) {

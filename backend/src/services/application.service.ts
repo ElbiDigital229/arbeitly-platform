@@ -1,5 +1,6 @@
 import { applicationRepository } from '../repositories/application.repository.js';
 import { HttpError } from '../errors/HttpError.js';
+import { publishEvent } from './eventbus.service.js';
 import type { CreateApplicationDtoType, UpdateApplicationDtoType } from '../dtos/application.dto.js';
 
 export const applicationService = {
@@ -45,7 +46,18 @@ export const applicationService = {
     if (application.userId !== userId) {
       throw HttpError.forbidden('You do not have access to this application');
     }
-    return applicationRepository.update(applicationId, dto);
+    const updated = await applicationRepository.update(applicationId, dto);
+
+    if (dto.status && dto.status !== application.status) {
+      publishEvent('events.application.statusChanged', {
+        applicationId,
+        userId,
+        oldStatus: application.status,
+        newStatus: dto.status,
+      });
+    }
+
+    return updated;
   },
 
   async deleteApplication(userId: string, applicationId: string) {

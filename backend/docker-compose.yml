@@ -2,12 +2,13 @@ services:
   app:
     build: .
     ports:
-      - "3000:3000"
+      - "4000:4000"
     env_file: .env
     depends_on:
       - postgres
       - valkey
       - minio
+      - nats
 
   postgres:
     image: postgres:16-alpine
@@ -30,6 +31,27 @@ services:
     volumes:
       - minio_data:/data
 
+  nats:
+    image: nats:2-alpine
+    command: ["--jetstream", "--store_dir=/data"]
+    volumes:
+      - nats_data:/data
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+
 volumes:
   postgres_data:
   minio_data:
+  nats_data:
+  caddy_data:
+  caddy_config:

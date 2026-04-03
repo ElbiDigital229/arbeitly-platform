@@ -27,6 +27,21 @@ const router = createRouter({
       meta: { requiresGuest: true },
     },
     {
+      path: '/checkout-success',
+      name: 'CheckoutSuccess',
+      component: () => import('../views/CheckoutSuccessView.vue'),
+    },
+    {
+      path: '/checkout-cancel',
+      name: 'CheckoutCancel',
+      component: () => import('../views/CheckoutCancelView.vue'),
+    },
+    {
+      path: '/auth/callback',
+      name: 'Auth0Callback',
+      component: () => import('../views/Auth0CallbackView.vue'),
+    },
+    {
       path: '/candidate/forgot-password',
       name: 'ForgotPassword',
       component: () => import('../views/ForgotPasswordView.vue'),
