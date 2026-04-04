@@ -375,9 +375,6 @@ function statusStyle(s: AppStatus) {
   return `background: ${statusBgMap[s]}; color: ${statusColorMap[s]};`;
 }
 
-function statusColor(s: AppStatus) {
-  return statusColorMap[s];
-}
 
 function formatDate(iso: string) {
   try { return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }); }

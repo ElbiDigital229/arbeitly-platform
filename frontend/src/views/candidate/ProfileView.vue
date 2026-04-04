@@ -346,12 +346,6 @@ const cvLimit = computed(() => auth.user?.usage?.cvCreationLimit ?? 10);
 const cvCount = computed(() => auth.user?.usage?.cvCreationsUsed ?? 0);
 const cvPct = computed(() => (cvCount.value / cvLimit.value) * 100);
 
-// ── Preferences & notification toggles ──
-const prefLanguage = ref('en');
-const notifEmail = ref(true);
-const notifPush = ref(true);
-const notifSms = ref(false);
-
 // ── Settings form ──
 const profileForm = ref({
   firstName: auth.user?.profile?.firstName || '',
