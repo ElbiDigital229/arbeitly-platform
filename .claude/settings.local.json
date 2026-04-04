@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(bunx prisma:*)",
+      "Bash(docker exec:*)",
+      "Bash(bun -e \"import dotenv from 'dotenv'; import path from 'path'; dotenv.config\\({ path: path.resolve\\(import.meta.dir, '.env'\\) }\\); console.log\\('DATABASE_URL:', process.env.DATABASE_URL\\)\")",
+      "Bash(command -v psql)",
+      "Bash(psql \"postgresql://arbeitly:arbeitly@localhost:5432/arbeitly\" -c \"SELECT 1\")",
+      "Bash(docker compose:*)",
+      "Bash(psql \"postgresql://arbeitly:arbeitly@localhost:5433/arbeitly\" -c \"SELECT 1\")",
+      "Bash(npx vue-tsc:*)",
+      "Bash(bunx vue-tsc:*)",
+      "Bash(bun run:*)",
+      "Bash(find . -name '*.vue' -exec sed -i '' 's/text-muted\\\\\\([^-]\\\\\\)/text-muted-foreground\\\\1/g; s/text-muted\"/text-muted-foreground\"/g' {} +)"
+    ]
+  }
+}
