@@ -1,49 +1,53 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
-import axios from 'axios';
+import api from '../services/api';
 
-interface Subscription {
-  planTier: string;
-  status: string;
-  currentPeriodEnd?: string;
-  cancelAtPeriodEnd?: boolean;
+interface Plan {
+  id: string;
+  name: string;
+  description: string | null;
+  price: number;
+  currency: string;
+  applicationLimit: number;
+  features: { text: string; included: boolean }[];
+  isActive: boolean;
+  isPopular: boolean;
+  sortOrder: number;
+}
+
+interface CurrentPlan {
+  plan: Plan | null;
+  status: 'FREE' | 'PAID';
+  applicationLimitUsed?: number;
+  applicationLimit?: number;
 }
 
 export const useSubscriptionStore = defineStore('subscription', () => {
-  const subscription = ref<Subscription | null>(null);
+  const currentPlan = ref<CurrentPlan | null>(null);
   const loading = ref(false);
 
-  async function fetchSubscription() {
+  async function fetchCurrentPlan() {
     loading.value = true;
     try {
-      const { data } = await axios.get('/api/payments/subscription');
-      subscription.value = data.data;
+      const { data } = await api.get('/payments/subscription');
+      currentPlan.value = data.data;
     } catch {
-      subscription.value = { planTier: 'FREE', status: 'ACTIVE' };
+      currentPlan.value = { plan: null, status: 'FREE' };
     } finally {
       loading.value = false;
     }
   }
 
-  async function startCheckout(tier: 'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE') {
-    const { data } = await axios.post('/api/payments/create-checkout', { tier });
-    if (data.data.url) {
-      window.location.href = data.data.url;
-    }
-  }
-
-  async function openPortal() {
-    const { data } = await axios.post('/api/payments/portal');
-    if (data.data.url) {
-      window.location.href = data.data.url;
-    }
+  async function purchasePlan(planId: string) {
+    const { data } = await api.post('/payments/purchase', { planId });
+    await fetchCurrentPlan();
+    return data.data;
   }
 
   return {
-    subscription,
+    currentPlan,
     loading,
-    fetchSubscription,
-    startCheckout,
-    openPortal,
+    fetchCurrentPlan,
+    purchasePlan,
   };
 });

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
-export const CreateCheckoutDto = z.object({
-  tier: z.enum(['STARTER', 'PROFESSIONAL', 'ENTERPRISE']),
+export const PurchasePlanDto = z.object({
+  planId: z.string().min(1, 'Plan ID is required'),
 });
 
-export type CreateCheckoutDtoType = z.infer<typeof CreateCheckoutDto>;
+export type PurchasePlanDtoType = z.infer<typeof PurchasePlanDto>;

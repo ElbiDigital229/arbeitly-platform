@@ -10,9 +10,13 @@
         </p>
       </div>
 
-      <div ref="gridRef" class="grid md:grid-cols-4 gap-6 max-w-6xl mx-auto">
+      <div v-if="loadingPlans" class="flex items-center justify-center py-16 text-muted-foreground">
+        <span class="mdi mdi-loading mdi-spin text-2xl" />
+      </div>
+
+      <div v-else ref="gridRef" class="grid gap-6 max-w-6xl mx-auto" :class="gridColsClass">
         <div
-          v-for="(plan, index) in plans"
+          v-for="(plan, index) in allPlans"
           :key="plan.id"
           class="relative rounded-2xl border p-6 flex flex-col"
           :class="[
@@ -21,7 +25,6 @@
           ]"
           :style="gridVisible ? { animationDelay: `${index * 0.1}s`, animationFillMode: 'both' } : { opacity: 0 }"
         >
-          <!-- Popular badge -->
           <div
             v-if="plan.popular"
             class="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-primary px-4 py-1 text-xs font-bold text-primary-foreground whitespace-nowrap"
@@ -36,17 +39,15 @@
           <div class="mt-4">
             <div class="flex items-baseline gap-1 flex-wrap">
               <span class="font-display text-4xl font-bold text-card-foreground">
-                {{ plan.price }}
+                &euro;{{ plan.price }}
               </span>
             </div>
-            <p v-if="plan.priceSuffix" class="text-xs font-semibold text-primary mt-0.5">
-              {{ plan.priceSuffix }}
-            </p>
-            <p class="text-xs text-muted-foreground mt-1">{{ plan.billing }}</p>
+            <p class="text-xs text-muted-foreground mt-1">{{ plan.free ? 'forever free' : 'one time payment' }}</p>
+            <p v-if="plan.applicationLimit" class="text-xs text-muted-foreground">{{ plan.applicationLimit }} applications</p>
           </div>
 
           <router-link
-            :to="`/register?plan=${plan.id}`"
+            :to="plan.free ? '/register?plan=free' : `/register?plan=${plan.id}`"
             class="mt-5 w-full h-10 rounded-full text-sm font-semibold text-center flex items-center justify-center transition-colors"
             :class="plan.popular
               ? 'bg-primary text-primary-foreground hover:opacity-90'
@@ -86,109 +87,69 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from 'vue';
+import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue';
+import axios from 'axios';
+
+interface Feature { text: string; included: boolean; }
+interface PlanDisplay {
+  id: string; name: string; price: number; applicationLimit: number;
+  popular: boolean; free: boolean; features: Feature[];
+}
 
 const gridRef = ref<HTMLElement | null>(null);
 const gridVisible = ref(false);
+const loadingPlans = ref(true);
+const dynamicPlans = ref<PlanDisplay[]>([]);
 let observer: IntersectionObserver | null = null;
 
-onMounted(() => {
-  if (gridRef.value) {
+const freePlan: PlanDisplay = {
+  id: 'free', name: 'Free', price: 0, applicationLimit: 20, popular: false, free: true,
+  features: [
+    { text: 'Job application tracker (list + kanban)', included: true },
+    { text: 'Up to 20 applications', included: true },
+    { text: 'Basic profile', included: true },
+    { text: 'Human Assistant', included: false },
+    { text: 'Resume / Cover Letter service', included: false },
+    { text: 'LinkedIn Makeover', included: false },
+  ],
+};
+
+const allPlans = computed(() => [freePlan, ...dynamicPlans.value]);
+const gridColsClass = computed(() => {
+  const count = allPlans.value.length;
+  if (count <= 2) return 'md:grid-cols-2';
+  if (count <= 3) return 'md:grid-cols-3';
+  if (count <= 4) return 'md:grid-cols-4';
+  return 'md:grid-cols-3 lg:grid-cols-5';
+});
+
+function setupObserver() {
+  if (gridRef.value && !observer) {
     observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          gridVisible.value = true;
-          observer?.disconnect();
-        }
-      },
+      ([entry]) => { if (entry.isIntersecting) { gridVisible.value = true; observer?.disconnect(); } },
       { threshold: 0.1 }
     );
     observer.observe(gridRef.value);
   }
+}
+
+onMounted(async () => {
+  try {
+    const { data } = await axios.get('/api/plans');
+    dynamicPlans.value = (data.data || []).map((p: any) => ({
+      id: p.id, name: p.name, price: p.price,
+      applicationLimit: p.applicationLimit,
+      popular: p.isPopular, free: false,
+      features: p.features || [],
+    }));
+  } catch { /* show free plan only */ }
+  finally { loadingPlans.value = false; }
+
+  await nextTick();
+  setupObserver();
 });
 
-onBeforeUnmount(() => observer?.disconnect());
+watch(gridRef, () => setupObserver());
 
-const plans = [
-  {
-    id: 'free',
-    name: 'Free',
-    price: '€0',
-    priceSuffix: '',
-    billing: 'forever free',
-    popular: false,
-    features: [
-      { text: 'Job application tracker (list + kanban)', included: true },
-      { text: 'Up to 20 applications', included: true },
-      { text: 'Basic profile', included: true },
-      { text: 'Human Assistant', included: false },
-      { text: 'Resume / Cover Letter service', included: false },
-      { text: 'LinkedIn Makeover', included: false },
-    ],
-  },
-  {
-    id: 'basic',
-    name: 'Basic',
-    price: '€299',
-    priceSuffix: '',
-    billing: 'one time payment',
-    popular: false,
-    features: [
-      { text: '200 Job applications', included: true },
-      { text: 'Expert Resume / Cover Letter Review (1,2)', included: true },
-      { text: 'Standard Resume*', included: true },
-      { text: 'Standard Cover Letters*', included: true },
-      { text: '1 Human Assistant', included: true },
-      { text: 'LinkedIn Makeover', included: false },
-    ],
-  },
-  {
-    id: 'standard',
-    name: 'Standard',
-    price: '€399',
-    priceSuffix: '',
-    billing: 'one time payment',
-    popular: false,
-    features: [
-      { text: '300 Job applications', included: true },
-      { text: 'Expert Resume / Cover Letter Review (1,2)', included: true },
-      { text: 'Standard Resume*', included: true },
-      { text: 'Standard Cover Letters*', included: true },
-      { text: '1 Human Assistant', included: true },
-      { text: 'LinkedIn Makeover', included: false },
-    ],
-  },
-  {
-    id: 'premium',
-    name: 'Premium',
-    price: '€499',
-    priceSuffix: '',
-    billing: 'one time payment',
-    popular: true,
-    features: [
-      { text: '400 Job applications', included: true },
-      { text: 'Expert Resume / Cover Letter Review (1,2)', included: true },
-      { text: 'Standard Resume*', included: true },
-      { text: 'Standard Cover Letters*', included: true },
-      { text: '1 Human Assistant', included: true },
-      { text: 'LinkedIn Makeover', included: false },
-    ],
-  },
-  {
-    id: 'ultimate',
-    name: 'Ultimate',
-    price: '€499',
-    priceSuffix: '+ 8.5% SUCCESS FEE',
-    billing: 'one time payment',
-    popular: false,
-    features: [
-      { text: 'Tailored Job Applications', included: true },
-      { text: 'Expert Resume / Cover Letter Review (2)', included: true },
-      { text: 'Custom Resume for every application', included: true },
-      { text: 'Custom Cover Letters for every application', included: true },
-      { text: '1 Human Assistant', included: true },
-      { text: 'LinkedIn Makeover (2)', included: true },
-    ],
-  },
-];
+onBeforeUnmount(() => observer?.disconnect());
 </script>

@@ -67,7 +67,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import axios from 'axios';
+import api from '../../services/api';
 import { useAdminStore } from '../../stores/admin';
 
 const store = useAdminStore();
@@ -104,8 +104,8 @@ function formatDate(iso: string) {
 onMounted(async () => {
   try {
     const [cRes, eRes] = await Promise.all([
-      axios.get('/api/admin/candidates', { headers: store.getAuthHeaders() }),
-      axios.get('/api/admin/employees', { headers: store.getAuthHeaders() }),
+      api.get('/admin/candidates', { headers: store.getAuthHeaders() }),
+      api.get('/admin/employees', { headers: store.getAuthHeaders() }),
     ]);
     const candidates = (cRes.data.data || []).map((c: any) => ({ id: c.id, email: c.email, role: 'CANDIDATE', activityCount: c._count?.applications || 0 }));
     const employees = (eRes.data.data || []).map((e: any) => ({ id: e.id, email: e.email, role: 'EMPLOYEE', activityCount: e._count?.assignedCandidates || 0 }));
@@ -113,7 +113,7 @@ onMounted(async () => {
 
     // Build activity feed from candidate applications
     for (const c of cRes.data.data || []) {
-      const appsRes = await axios.get(`/api/admin/candidates/${c.id}/applications`, { headers: store.getAuthHeaders() }).catch(() => ({ data: { data: [] } }));
+      const appsRes = await api.get(`/admin/candidates/${c.id}/applications`, { headers: store.getAuthHeaders() }).catch(() => ({ data: { data: [] } }));
       for (const app of appsRes.data.data || []) {
         activities.value.push({
           userId: c.id,

@@ -78,11 +78,26 @@
         <div class="px-6 py-4">
           <div class="flex items-center justify-between">
             <div>
-              <p class="font-display text-lg font-bold text-primary">Free</p>
-              <p class="text-sm text-muted-foreground">Free forever</p>
+              <p class="font-display text-lg font-bold text-primary">{{ auth.user?.plan?.name || 'Free' }}</p>
+              <p class="text-sm text-muted-foreground">{{ auth.user?.plan ? `€${auth.user.plan.price} — one time payment` : 'Free forever' }}</p>
             </div>
             <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">Active</span>
           </div>
+          <div v-if="auth.user?.plan" class="mt-3 pt-3 border-t border-border space-y-1.5">
+            <div class="flex items-center justify-between text-sm">
+              <span class="text-muted-foreground">Employee applications used</span>
+              <span class="font-semibold tabular-nums text-foreground">{{ auth.user?.profile?.applicationLimitUsed ?? 0 }} / {{ auth.user.plan.applicationLimit }}</span>
+            </div>
+            <div class="w-full h-2 rounded-full overflow-hidden bg-secondary">
+              <div
+                class="h-full rounded-full transition-all bg-primary"
+                :style="`width: ${Math.min(100, ((auth.user?.profile?.applicationLimitUsed ?? 0) / auth.user.plan.applicationLimit) * 100)}%`"
+              />
+            </div>
+          </div>
+          <p v-if="!auth.user?.plan" class="mt-3 pt-3 border-t border-border text-xs text-muted-foreground">
+            <router-link to="/pricing" class="text-primary hover:underline">Upgrade to get an assigned employee →</router-link>
+          </p>
         </div>
       </div>
 
@@ -305,7 +320,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
-import axios from 'axios';
+import api from '../../services/api';
 import { useAuthStore } from '../../stores/auth';
 
 const auth = useAuthStore();
@@ -378,7 +393,7 @@ async function saveProfile() {
   profileError.value = '';
   savingProfile.value = true;
   try {
-    await axios.put('/api/profile', {
+    await api.put('/profile', {
       firstName: profileForm.value.firstName.trim(),
       lastName: profileForm.value.lastName.trim(),
       phone: profileForm.value.phone.trim() || undefined,
@@ -432,8 +447,8 @@ watch(activeTab, async (tab) => {
   loadingActivity.value = true;
   try {
     const [cvsRes, appsRes] = await Promise.all([
-      axios.get('/api/cvs').catch(() => ({ data: { data: [] } })),
-      axios.get('/api/applications').catch(() => ({ data: { data: [] } })),
+      api.get('/cvs').catch(() => ({ data: { data: [] } })),
+      api.get('/applications').catch(() => ({ data: { data: [] } })),
     ]);
     const cvItems: ActivityItem[] = (cvsRes.data.data || []).map((cv: any) => ({
       id: `cv-${cv.id}`,

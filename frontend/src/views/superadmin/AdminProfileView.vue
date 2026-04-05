@@ -67,7 +67,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import axios from 'axios';
+import api from '../../services/api';
 import { useAdminStore } from '../../stores/admin';
 
 const store = useAdminStore();
@@ -83,7 +83,7 @@ async function savePassword() {
   if (pw.value.next !== pw.value.confirm) { pwError.value = 'Passwords do not match.'; return; }
   saving.value = true;
   try {
-    await axios.put('/api/admin/change-password', { currentPassword: pw.value.current, newPassword: pw.value.next }, { headers: store.getAuthHeaders() });
+    await api.put('/admin/change-password', { currentPassword: pw.value.current, newPassword: pw.value.next }, { headers: store.getAuthHeaders() });
     pw.value = { current: '', next: '', confirm: '' };
     saved.value = true;
     setTimeout(() => { saved.value = false; }, 3000);

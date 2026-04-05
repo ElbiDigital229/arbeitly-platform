@@ -52,7 +52,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import axios from 'axios';
+import api from '../../services/api';
 import { useAdminStore } from '../../stores/admin';
 
 const store = useAdminStore();
@@ -79,7 +79,7 @@ function formatDate(iso: string) {
 
 async function assignEmployee(candidateId: string, employeeId: string) {
   try {
-    await axios.patch(`/api/admin/candidates/${candidateId}`, { assignedEmployeeId: employeeId || null }, { headers: store.getAuthHeaders() });
+    await api.patch(`/admin/candidates/${candidateId}`, { assignedEmployeeId: employeeId || null }, { headers: store.getAuthHeaders() });
     const c = candidates.value.find((c: any) => c.id === candidateId);
     if (c) {
       c.assignedEmployeeId = employeeId || null;
@@ -91,11 +91,13 @@ async function assignEmployee(candidateId: string, employeeId: string) {
 onMounted(async () => {
   try {
     const [cRes, eRes] = await Promise.all([
-      axios.get('/api/admin/candidates', { headers: store.getAuthHeaders() }),
-      axios.get('/api/admin/employees', { headers: store.getAuthHeaders() }),
+      api.get('/admin/candidates', { headers: store.getAuthHeaders() }),
+      api.get('/admin/employees', { headers: store.getAuthHeaders() }),
     ]);
-    candidates.value = cRes.data.data || [];
-    employees.value = eRes.data.data || [];
+    const cData = cRes.data.data;
+    candidates.value = Array.isArray(cData) ? cData : cData?.data || [];
+    const eData = eRes.data.data;
+    employees.value = Array.isArray(eData) ? eData : eData?.data || [];
   } catch (err) { console.error(err); }
   finally { loading.value = false; }
 });

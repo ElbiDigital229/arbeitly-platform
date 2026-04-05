@@ -50,7 +50,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
-import axios from 'axios';
+import api from '../../services/api';
 import { useEmployeeStore } from '../../stores/employee';
 
 const store = useEmployeeStore();
@@ -64,7 +64,7 @@ const savingPw = ref(false);
 async function saveProfile() {
   saving.value = true;
   try {
-    await axios.put('/api/employee/profile', { email: email.value }, { headers: store.getAuthHeaders() });
+    await api.put('/employee/profile', { email: email.value }, { headers: store.getAuthHeaders() });
     saved.value = true;
     setTimeout(() => { saved.value = false; }, 3000);
   } catch (err) {
@@ -79,7 +79,7 @@ async function savePassword() {
   if (pw.value.next.length < 8) { pwError.value = 'Min 8 characters.'; return; }
   savingPw.value = true;
   try {
-    await axios.put('/api/employee/change-password', { currentPassword: pw.value.current, newPassword: pw.value.next }, { headers: store.getAuthHeaders() });
+    await api.put('/employee/change-password', { currentPassword: pw.value.current, newPassword: pw.value.next }, { headers: store.getAuthHeaders() });
     pw.value = { current: '', next: '' };
   } catch (e: any) {
     pwError.value = e?.response?.data?.error || 'Failed';

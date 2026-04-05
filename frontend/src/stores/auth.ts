@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import axios from 'axios';
+import api from '../services/api';
 
 interface CandidateProfile {
   id: string;
@@ -12,11 +12,20 @@ interface CandidateProfile {
   linkedinUrl: string | null;
   portfolioUrl: string | null;
   onboardingCompleted: boolean;
+  applicationLimitUsed: number;
 }
 
 interface Usage {
   cvCreationLimit: number;
   cvCreationsUsed: number;
+}
+
+interface Plan {
+  id: string;
+  name: string;
+  price: number;
+  currency: string;
+  applicationLimit: number;
 }
 
 interface User {
@@ -26,6 +35,7 @@ interface User {
   createdAt: string;
   profile: CandidateProfile | null;
   usage: Usage | null;
+  plan: Plan | null;
 }
 
 export const useAuthStore = defineStore('auth', () => {
@@ -34,25 +44,19 @@ export const useAuthStore = defineStore('auth', () => {
 
   const isAuthenticated = computed(() => !!token.value);
 
-  if (token.value) {
-    axios.defaults.headers.common['Authorization'] = `Bearer ${token.value}`;
-  }
-
   function setToken(newToken: string) {
     token.value = newToken;
     localStorage.setItem('arbeitly_token', newToken);
-    axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
   }
 
   function clearAuth() {
     token.value = null;
     user.value = null;
     localStorage.removeItem('arbeitly_token');
-    delete axios.defaults.headers.common['Authorization'];
   }
 
   async function register(email: string, password: string, confirmPassword: string) {
-    const { data } = await axios.post('/api/auth/register', { email, password, confirmPassword });
+    const { data } = await api.post('/auth/register', { email, password, confirmPassword });
     setToken(data.data.token);
     user.value = data.data.user;
     await fetchMe();
@@ -60,10 +64,9 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function login(email: string, password: string) {
-    const { data } = await axios.post('/api/auth/login', { email, password });
+    const { data } = await api.post('/auth/login', { email, password });
     setToken(data.data.token);
     user.value = data.data.user;
-    // Fetch full profile after login
     await fetchMe();
     return data.data;
   }
@@ -71,16 +74,15 @@ export const useAuthStore = defineStore('auth', () => {
   async function fetchMe() {
     if (!token.value) return;
     try {
-      const { data } = await axios.get('/api/auth/me');
+      const { data } = await api.get('/auth/me');
       user.value = data.data;
     } catch {
-      // Token expired or invalid — clear auth
       clearAuth();
     }
   }
 
   async function changePassword(currentPassword: string, newPassword: string) {
-    const { data } = await axios.put('/api/auth/change-password', { currentPassword, newPassword });
+    const { data } = await api.put('/auth/change-password', { currentPassword, newPassword });
     return data.data;
   }
 

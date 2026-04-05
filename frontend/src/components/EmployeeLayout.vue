@@ -73,11 +73,13 @@ const collapsed = ref(false);
 const navItems = [
   { to: '/employee/dashboard', icon: 'mdi-view-dashboard-outline', label: 'Overview' },
   { to: '/employee/candidates', icon: 'mdi-account-group-outline', label: 'Candidates' },
+  { to: '/employee/job-discovery', icon: 'mdi-briefcase-search-outline', label: 'Job Discovery' },
 ];
 
 const pageTitles: Record<string, string> = {
   '/employee/dashboard': 'Operations Overview',
   '/employee/candidates': 'My Candidates',
+  '/employee/job-discovery': 'Job Discovery',
   '/employee/settings': 'Settings',
 };
 

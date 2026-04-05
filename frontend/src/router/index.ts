@@ -1,5 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
+import { useAdminStore } from '../stores/admin';
+import { useEmployeeStore } from '../stores/employee';
 
 const router = createRouter({
   history: createWebHistory(),
@@ -25,6 +27,12 @@ const router = createRouter({
       name: 'Register',
       component: () => import('../views/RegisterView.vue'),
       meta: { requiresGuest: true },
+    },
+    {
+      path: '/checkout',
+      name: 'Checkout',
+      component: () => import('../views/CheckoutView.vue'),
+      meta: { requiresAuth: true },
     },
     {
       path: '/candidate/forgot-password',
@@ -91,6 +99,7 @@ const router = createRouter({
         { path: 'dashboard', name: 'EmployeeDashboard', component: () => import('../views/employee/DashboardView.vue') },
         { path: 'candidates', name: 'EmployeeCandidates', component: () => import('../views/employee/CandidatesView.vue') },
         { path: 'candidates/:id', name: 'EmployeeCandidateDetail', component: () => import('../views/employee/CandidateDetailView.vue') },
+        { path: 'job-discovery', name: 'EmployeeJobDiscovery', component: () => import('../views/employee/JobDiscoveryView.vue') },
         { path: 'settings', name: 'EmployeeSettings', component: () => import('../views/employee/SettingsView.vue') },
       ],
     },
@@ -111,6 +120,7 @@ const router = createRouter({
         { path: 'candidates', name: 'AdminCandidates', component: () => import('../views/superadmin/CandidatesView.vue') },
         { path: 'employees', name: 'AdminEmployees', component: () => import('../views/superadmin/EmployeesView.vue') },
         { path: 'plans', name: 'AdminPlans', component: () => import('../views/superadmin/PlansView.vue') },
+        { path: 'performance', name: 'AdminPerformance', component: () => import('../views/superadmin/PerformanceView.vue') },
         { path: 'ai-config', name: 'AdminAIConfig', component: () => import('../views/superadmin/AIConfigView.vue') },
         { path: 'audit-log', name: 'AdminAuditLog', component: () => import('../views/superadmin/AuditLogView.vue') },
         { path: 'system-settings', name: 'AdminSystemSettings', component: () => import('../views/superadmin/SystemSettingsView.vue') },
@@ -126,15 +136,15 @@ router.beforeEach((to, _from, next) => {
 
   // Admin routes
   if (to.meta.requiresAdmin) {
-    const adminToken = localStorage.getItem('arbeitly_admin_token');
-    if (!adminToken) return next({ name: 'AdminLogin' });
+    const adminStore = useAdminStore();
+    if (!adminStore.token) return next({ name: 'AdminLogin' });
     return next();
   }
 
-  // Employee routes use their own store
+  // Employee routes
   if (to.meta.requiresEmployee) {
-    const empToken = localStorage.getItem('arbeitly_employee_token');
-    if (!empToken) return next({ name: 'EmployeeLogin' });
+    const employeeStore = useEmployeeStore();
+    if (!employeeStore.token) return next({ name: 'EmployeeLogin' });
     return next();
   }
 

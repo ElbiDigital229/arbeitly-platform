@@ -8,7 +8,7 @@
         </p>
         <h2 class="font-display text-4xl font-bold text-foreground">
           You've chosen the
-          <span class="text-gradient">{{ selectedPlan.name }}</span> plan
+          <span class="text-gradient">{{ selectedPlan?.name || 'Free' }}</span> plan
         </h2>
         <p class="mt-4 text-muted-foreground text-lg">
           {{ isFree
@@ -17,17 +17,14 @@
         </p>
 
         <!-- Plan card -->
-        <div class="mt-8 rounded-2xl border border-border bg-card/60 backdrop-blur p-6">
+        <div v-if="selectedPlan" class="mt-8 rounded-2xl border border-border bg-card/60 backdrop-blur p-6">
           <div class="flex items-baseline justify-between mb-4">
             <span class="font-display text-lg font-bold text-card-foreground">{{ selectedPlan.name }}</span>
-            <span class="font-display text-sm font-bold text-primary">
-              {{ selectedPlan.price }}
-              <template v-if="selectedPlan.priceSuffix"> {{ selectedPlan.priceSuffix }}</template>
-            </span>
+            <span class="font-display text-sm font-bold text-primary">&euro;{{ selectedPlan.price }}</span>
           </div>
           <ul class="space-y-2">
             <li
-              v-for="f in selectedPlan.features.filter(f => f.included)"
+              v-for="f in (selectedPlan.features || []).filter((f: any) => f.included)"
               :key="f.text"
               class="flex items-center gap-2 text-sm text-muted-foreground"
             >
@@ -58,48 +55,19 @@
         <form class="mt-6 space-y-4" @submit.prevent="handleRegister">
           <div>
             <label for="fullName" class="text-sm font-medium text-foreground">Full Name</label>
-            <input
-              id="fullName"
-              v-model="fullName"
-              type="text"
-              placeholder="Max Müller"
-              required
-              class="input-field mt-1.5"
-            />
+            <input id="fullName" v-model="fullName" type="text" placeholder="Max Müller" required class="input-field mt-1.5" />
           </div>
           <div>
             <label for="email" class="text-sm font-medium text-foreground">Email</label>
-            <input
-              id="email"
-              v-model="email"
-              type="email"
-              placeholder="you@example.com"
-              required
-              class="input-field mt-1.5"
-            />
+            <input id="email" v-model="email" type="email" placeholder="you@example.com" required class="input-field mt-1.5" />
           </div>
           <div>
             <label for="password" class="text-sm font-medium text-foreground">Password</label>
-            <input
-              id="password"
-              v-model="password"
-              type="password"
-              placeholder="••••••••"
-              required
-              minlength="8"
-              class="input-field mt-1.5"
-            />
+            <input id="password" v-model="password" type="password" placeholder="••••••••" required minlength="8" class="input-field mt-1.5" />
           </div>
           <div>
             <label for="confirm" class="text-sm font-medium text-foreground">Confirm Password</label>
-            <input
-              id="confirm"
-              v-model="confirmPassword"
-              type="password"
-              placeholder="••••••••"
-              required
-              class="input-field mt-1.5"
-            />
+            <input id="confirm" v-model="confirmPassword" type="password" placeholder="••••••••" required class="input-field mt-1.5" />
           </div>
           <button
             type="submit"
@@ -124,9 +92,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
+import axios from 'axios';
 
 const auth = useAuthStore();
 const router = useRouter();
@@ -139,90 +108,36 @@ const confirmPassword = ref('');
 const loading = ref(false);
 const apiError = ref('');
 
-const plans = [
-  {
-    id: 'free',
-    name: 'Free',
-    price: '€0',
-    priceSuffix: '',
-    free: true,
-    features: [
-      { text: 'Job application tracker (list + kanban)', included: true },
-      { text: 'Up to 20 applications', included: true },
-      { text: 'Basic profile', included: true },
-      { text: 'Human Assistant', included: false },
-      { text: 'Resume / Cover Letter service', included: false },
-      { text: 'LinkedIn Makeover', included: false },
-    ],
-  },
-  {
-    id: 'basic',
-    name: 'Basic',
-    price: '€299',
-    priceSuffix: '',
-    free: false,
-    features: [
-      { text: '200 Job applications', included: true },
-      { text: 'Expert Resume / Cover Letter Review', included: true },
-      { text: 'Standard Resume', included: true },
-      { text: 'Standard Cover Letters', included: true },
-      { text: '1 Human Assistant', included: true },
-      { text: 'LinkedIn Makeover', included: false },
-    ],
-  },
-  {
-    id: 'standard',
-    name: 'Standard',
-    price: '€399',
-    priceSuffix: '',
-    free: false,
-    features: [
-      { text: '300 Job applications', included: true },
-      { text: 'Expert Resume / Cover Letter Review', included: true },
-      { text: 'Standard Resume', included: true },
-      { text: 'Standard Cover Letters', included: true },
-      { text: '1 Human Assistant', included: true },
-      { text: 'LinkedIn Makeover', included: false },
-    ],
-  },
-  {
-    id: 'premium',
-    name: 'Premium',
-    price: '€499',
-    priceSuffix: '',
-    free: false,
-    features: [
-      { text: '400 Job applications', included: true },
-      { text: 'Expert Resume / Cover Letter Review', included: true },
-      { text: 'Standard Resume', included: true },
-      { text: 'Standard Cover Letters', included: true },
-      { text: '1 Human Assistant', included: true },
-      { text: 'LinkedIn Makeover', included: false },
-    ],
-  },
-  {
-    id: 'ultimate',
-    name: 'Ultimate',
-    price: '€499',
-    priceSuffix: '+ 8.5% SUCCESS FEE',
-    free: false,
-    features: [
-      { text: 'Tailored Job Applications', included: true },
-      { text: 'Expert Resume / Cover Letter Review', included: true },
-      { text: 'Custom Resume for every application', included: true },
-      { text: 'Custom Cover Letters for every application', included: true },
-      { text: '1 Human Assistant', included: true },
-      { text: 'LinkedIn Makeover', included: true },
-    ],
-  },
-];
+interface PlanData {
+  id: string; name: string; price: number; features: { text: string; included: boolean }[];
+}
 
-const selectedPlan = computed(() => {
-  const planParam = (route.query.plan as string) || 'premium';
-  return plans.find(p => p.id === planParam) ?? plans[0];
+const dynamicPlans = ref<PlanData[]>([]);
+
+const freePlan: PlanData = {
+  id: 'free', name: 'Free', price: 0,
+  features: [
+    { text: 'Job application tracker (list + kanban)', included: true },
+    { text: 'Up to 20 applications', included: true },
+    { text: 'Basic profile', included: true },
+    { text: 'Human Assistant', included: false },
+  ],
+};
+
+onMounted(async () => {
+  try {
+    const { data } = await axios.get('/api/plans');
+    dynamicPlans.value = data.data || [];
+  } catch { /* fallback to free only */ }
 });
 
-const isFree = computed(() => selectedPlan.value.free);
+const selectedPlan = computed(() => {
+  const planParam = (route.query.plan as string) || 'free';
+  if (planParam === 'free') return freePlan;
+  return dynamicPlans.value.find(p => p.id === planParam) ?? freePlan;
+});
+
+const isFree = computed(() => selectedPlan.value.id === 'free');
 
 async function handleRegister() {
   apiError.value = '';
@@ -233,7 +148,11 @@ async function handleRegister() {
   loading.value = true;
   try {
     await auth.register(email.value, password.value, confirmPassword.value);
-    router.push('/candidate/applications');
+    if (isFree.value) {
+      router.push('/candidate/applications');
+    } else {
+      router.push({ path: '/checkout', query: { plan: selectedPlan.value.id } });
+    }
   } catch (e: any) {
     apiError.value = e?.response?.data?.error || 'Registration failed. Please try again.';
   } finally {

@@ -5,7 +5,7 @@ import { env } from '../config/env.js';
 import { cvRepository } from '../repositories/cv.repository.js';
 import { aiService } from './ai.service.js';
 import { HttpError } from '../errors/HttpError.js';
-import { extractLargestImage } from './pdf-image.service.js';
+import { extractAllImages } from './pdf-image.service.js';
 import { prisma } from '../config/prisma.js';
 import type { CreateCVDtoType, UpdateCVDtoType } from '../dtos/cv.dto.js';
 import type { ParsedCVData } from './ai.service.js';
@@ -37,15 +37,16 @@ export const cvService = {
       throw new Error(`CV extraction failed: ${err?.message ?? 'Unknown AI error'}`);
     }
 
-    // 2. Extract photo from PDF if applicable
+    // 2. Extract photo + signature from PDF if applicable
     if (file.mimetype === 'application/pdf') {
       try {
-        const photoDataUrl = await extractLargestImage(file.buffer);
-        if (photoDataUrl && parsedData) {
-          (parsedData as any).photoDataUrl = photoDataUrl;
+        const { photo, signature } = await extractAllImages(file.buffer);
+        if (parsedData) {
+          if (photo) (parsedData as any).photoDataUrl = photo;
+          if (signature) (parsedData as any).signatureDataUrl = signature;
         }
       } catch (err: any) {
-        console.error('Photo extraction failed (non-fatal):', err?.message ?? err);
+        console.error('Image extraction failed (non-fatal):', err?.message ?? err);
       }
     }
 

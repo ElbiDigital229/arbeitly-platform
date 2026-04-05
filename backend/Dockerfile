@@ -10,6 +10,7 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npx prisma generate
+RUN npx tsc
 
 # Stage 3: Runner
 FROM node:20-slim AS runner
@@ -19,18 +20,23 @@ ENV NODE_ENV=production
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
-# Install Chromium for PDF export
+# Install Chromium for PDF export + create non-root user
 RUN apt-get update && apt-get install -y --no-install-recommends \
     chromium \
     fonts-liberation \
     fonts-noto-color-emoji \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && adduser --system --uid 1001 appuser
 
+COPY --from=build /app/dist ./dist
 COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/src ./src
 COPY --from=build /app/prisma ./prisma
-COPY package.json tsconfig.json ./
+COPY package.json ./
 
+USER appuser
 EXPOSE 4000
 
-CMD ["npx", "tsx", "src/server.ts"]
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s \
+  CMD node -e "fetch('http://localhost:4000/api/health').then(r => {if(!r.ok) throw 1}).catch(() => process.exit(1))"
+
+CMD ["node", "dist/server.js"]

@@ -122,23 +122,25 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import api from '../services/api';
 
 type TokenState = 'loading' | 'valid' | 'invalid' | 'expired';
 
 const route = useRoute();
 const router = useRouter();
 
-const token = (route.query.token as string) ?? '';
+const resetToken = (route.query.token as string) ?? '';
 const tokenState = ref<TokenState>('loading');
 const tokenEmail = ref('');
 const form = ref({ password: '', confirm: '' });
 const error = ref('');
 const success = ref(false);
+const loading = ref(false);
 
 onMounted(() => {
-  if (!token) { tokenState.value = 'invalid'; return; }
+  if (!resetToken) { tokenState.value = 'invalid'; return; }
   try {
-    const raw = sessionStorage.getItem(`arbeitly_reset_${token}`);
+    const raw = sessionStorage.getItem(`arbeitly_reset_${resetToken}`);
     if (!raw) { tokenState.value = 'invalid'; return; }
     const { email, expiry } = JSON.parse(raw);
     if (Date.now() > expiry) { tokenState.value = 'expired'; return; }
@@ -149,12 +151,24 @@ onMounted(() => {
   }
 });
 
-function handleSubmit() {
+async function handleSubmit() {
   error.value = '';
-  if (form.value.password.length < 8) { error.value = 'Password must be at least 8 characters.'; return; }
+  if (form.value.password.length < 10) { error.value = 'Password must be at least 10 characters.'; return; }
   if (form.value.password !== form.value.confirm) { error.value = 'Passwords do not match.'; return; }
-  sessionStorage.removeItem(`arbeitly_reset_${token}`);
-  success.value = true;
-  setTimeout(() => router.push('/login'), 3000);
+  loading.value = true;
+  try {
+    await api.post('/auth/reset-password', {
+      token: resetToken,
+      email: tokenEmail.value,
+      password: form.value.password,
+    });
+    sessionStorage.removeItem(`arbeitly_reset_${resetToken}`);
+    success.value = true;
+    setTimeout(() => router.push('/login'), 3000);
+  } catch (err: any) {
+    error.value = err.response?.data?.message || 'Failed to reset password. Please try again.';
+  } finally {
+    loading.value = false;
+  }
 }
 </script>

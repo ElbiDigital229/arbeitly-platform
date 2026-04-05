@@ -108,7 +108,7 @@
 <script setup lang="ts">
 // TODO: Full CRUD connected to /api/applications
 import { ref, computed, onMounted } from 'vue';
-import axios from 'axios';
+import api from '../services/api';
 import AppLayout from '../components/AppLayout.vue';
 
 interface Application {
@@ -182,7 +182,7 @@ onMounted(fetchApplications);
 
 async function fetchApplications() {
   try {
-    const { data } = await axios.get('/api/applications');
+    const { data } = await api.get('/applications');
     applications.value = data.data;
   } catch {
     // Silently handle
@@ -199,9 +199,9 @@ async function handleSave() {
       jobUrl: form.value.jobUrl || undefined,
     };
     if (editingId.value) {
-      await axios.put(`/api/applications/${editingId.value}`, payload);
+      await api.put(`/api/applications/${editingId.value}`, payload);
     } else {
-      await axios.post('/api/applications', payload);
+      await api.post('/applications', payload);
     }
     dialog.value = false;
     await fetchApplications();
@@ -216,7 +216,7 @@ async function handleSave() {
 async function deleteApplication(id: string) {
   if (!confirm('Delete this application?')) return;
   try {
-    await axios.delete(`/api/applications/${id}`);
+    await api.delete(`/api/applications/${id}`);
     await fetchApplications();
   } catch {
     // Silently handle

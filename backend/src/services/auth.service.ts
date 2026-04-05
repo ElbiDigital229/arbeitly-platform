@@ -48,16 +48,18 @@ export const authService = {
     if (!user) {
       throw HttpError.notFound('User not found');
     }
+    const profile = user.profile as (typeof user.profile & { plan?: any }) | null;
     return {
       id: user.id,
       email: user.email,
       role: user.role,
       createdAt: user.createdAt,
       profile: user.profile,
-      usage: user.profile ? {
-        cvCreationLimit: user.profile.cvCreationLimit,
-        cvCreationsUsed: user.profile.cvCreationsUsed,
+      usage: profile ? {
+        cvCreationLimit: profile.cvCreationLimit,
+        cvCreationsUsed: profile.cvCreationsUsed,
       } : null,
+      plan: profile?.plan ?? null,
     };
   },
 

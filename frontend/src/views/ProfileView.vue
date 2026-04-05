@@ -67,7 +67,7 @@
 <script setup lang="ts">
 // TODO: Fully integrated with GET /api/profile and PUT /api/profile
 import { ref, onMounted } from 'vue';
-import axios from 'axios';
+import api from '../services/api';
 import AppLayout from '../components/AppLayout.vue';
 
 const loading = ref(true);
@@ -87,7 +87,7 @@ const form = ref({
 
 onMounted(async () => {
   try {
-    const { data } = await axios.get('/api/profile');
+    const { data } = await api.get('/profile');
     const p = data.data;
     form.value = {
       firstName: p.firstName ?? '',
@@ -110,7 +110,7 @@ async function handleSave() {
   success.value = false;
   saving.value = true;
   try {
-    await axios.put('/api/profile', form.value);
+    await api.put('/profile', form.value);
     success.value = true;
   } catch (err: unknown) {
     const e = err as { response?: { data?: { error?: string } } };

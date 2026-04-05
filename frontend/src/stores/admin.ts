@@ -2,9 +2,16 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import axios from 'axios';
 
+interface AdminUser {
+  id: string;
+  email: string;
+  role: string;
+  createdAt: string;
+}
+
 export const useAdminStore = defineStore('admin', () => {
   const token = ref<string | null>(localStorage.getItem('arbeitly_admin_token'));
-  const user = ref<any>(null);
+  const user = ref<AdminUser | null>(null);
   const isAuthenticated = computed(() => !!token.value);
 
   async function signin(email: string, password: string) {

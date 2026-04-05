@@ -80,7 +80,7 @@
 <script setup lang="ts">
 // TODO: Fully connected to CV API endpoints
 import { ref, onMounted } from 'vue';
-import axios from 'axios';
+import api from '../services/api';
 import AppLayout from '../components/AppLayout.vue';
 
 interface CV {
@@ -100,7 +100,7 @@ onMounted(fetchCVs);
 
 async function fetchCVs() {
   try {
-    const { data } = await axios.get('/api/cvs');
+    const { data } = await api.get('/cvs');
     cvs.value = data.data;
   } catch {
     // Handle silently
@@ -118,7 +118,7 @@ async function handleUpload() {
     const formData = new FormData();
     formData.append('title', uploadTitle.value);
     formData.append('file', uploadFile.value[0]);
-    await axios.post('/api/cvs', formData, {
+    await api.post('/cvs', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
     uploadDialog.value = false;
@@ -136,7 +136,7 @@ async function handleUpload() {
 async function deleteCV(id: string) {
   if (!confirm('Are you sure you want to delete this CV?')) return;
   try {
-    await axios.delete(`/api/cvs/${id}`);
+    await api.delete(`/api/cvs/${id}`);
     await fetchCVs();
   } catch {
     // Handle silently

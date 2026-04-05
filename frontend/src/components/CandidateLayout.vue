@@ -110,12 +110,22 @@
         </div>
 
         <div class="flex items-center gap-1">
-          <button
+          <router-link
+            v-if="auth.user?.plan"
+            to="/candidate/profile"
+            class="hidden sm:flex items-center gap-1 h-7 px-3 rounded-full text-xs font-medium mr-1 bg-primary/15 text-primary border border-primary/25 hover:bg-primary/25 transition-colors"
+          >
+            <span class="mdi mdi-star text-sm" />
+            {{ auth.user.plan.name }}
+          </router-link>
+          <router-link
+            v-else
+            to="/pricing"
             class="hidden sm:flex items-center gap-1 h-7 px-3 rounded-full text-xs font-medium mr-1 bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
           >
             <span class="mdi mdi-creation text-sm" />
             Upgrade Plan
-          </button>
+          </router-link>
           <button class="h-8 w-8 rounded flex items-center justify-center hover:bg-secondary/50 text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
             <span class="mdi mdi-help-circle-outline text-base" />
           </button>

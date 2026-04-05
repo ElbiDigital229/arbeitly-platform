@@ -593,7 +593,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, watch, nextTick, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
-import axios from 'axios';
+import api from '../../services/api';
 import StepIndicator from '../../components/StepIndicator.vue';
 import TemplateMiniPreview from '../../components/TemplateMiniPreview.vue';
 
@@ -611,7 +611,7 @@ interface EditorData {
   photoDataUrl: string;
   sectionOrder: CvSectionKey[];
   customSections: CustomSection[];
-  fullName: string; email: string; phone: string; location: string; nationality: string; linkedin: string; website: string; github: string; portfolio: string;
+  fullName: string; email: string; phone: string; location: string; nationality: string; linkedin: string; linkedinUrl: string; website: string; github: string; portfolio: string;
   signaturePlaceDate: string; signatureDataUrl: string;
   summary: string; experience: ExpItem[]; education: EduItem[]; skills: string;
 }
@@ -677,21 +677,36 @@ function escapeHtml(s: string) {
 
 function isHtml(s: string) { return /<[a-z][\s\S]*>/i.test(s); }
 
+function boldify(text: string): string {
+  // Convert **text** markers to <strong> tags
+  return text.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+}
+
 function editorToHtml(d: EditorData): string {
   const t = SECTION_LABELS[d.language] ?? SECTION_LABELS.EN;
-  const contact = [d.email, d.phone, d.location, d.nationality ? `Nationality: ${d.nationality}` : '', d.linkedin, d.website, d.github, d.portfolio].filter(Boolean).join(' · ');
+  const linkedinDisplay = d.linkedin
+    ? ((d as any).linkedinUrl
+      ? `<a href="${escapeHtml((d as any).linkedinUrl)}" style="color:inherit;text-decoration:underline">${escapeHtml(d.linkedin)}</a>`
+      : escapeHtml(d.linkedin))
+    : '';
+  const contactParts = [d.email, d.phone, d.location, d.nationality ? `Nationality: ${d.nationality}` : ''].filter(Boolean).map(escapeHtml);
+  if (linkedinDisplay) contactParts.push(linkedinDisplay);
+  if (d.website) contactParts.push(escapeHtml(d.website));
+  if (d.github) contactParts.push(escapeHtml(d.github));
+  if (d.portfolio) contactParts.push(escapeHtml(d.portfolio));
+  const contact = contactParts.join(' · ');
   const photo = d.photoDataUrl?.trim()
     ? `<img data-role="profile-photo" src="${d.photoDataUrl.trim()}" alt="Profile photo" style="width:96px;height:96px;border-radius:4px;object-fit:cover;border:2px solid rgba(148,163,184,.5)" />`
     : '';
   const header = photo
-    ? `<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:18px"><div style="flex:1;min-width:0"><h1>${escapeHtml(d.fullName || 'Your Name')}</h1>${contact ? `<p class="contact">${escapeHtml(contact)}</p>` : ''}</div><div style="flex:0 0 auto;margin-top:4px">${photo}</div></div>`
-    : `<h1>${escapeHtml(d.fullName || 'Your Name')}</h1>${contact ? `<p class="contact">${escapeHtml(contact)}</p>` : ''}`;
+    ? `<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:18px"><div style="flex:1;min-width:0"><h1>${escapeHtml(d.fullName || 'Your Name')}</h1>${contact ? `<p class="contact">${contact}</p>` : ''}</div><div style="flex:0 0 auto;margin-top:4px">${photo}</div></div>`
+    : `<h1>${escapeHtml(d.fullName || 'Your Name')}</h1>${contact ? `<p class="contact">${contact}</p>` : ''}`;
 
   const exp = d.experience.filter(e => e.company || e.role).map(e => {
-    const lines = e.description.split('\n').map(l => l.trim()).filter(Boolean);
+    const lines = e.description.split('\n').map(l => l.replace(/^[-•]\s*/, '').trim()).filter(Boolean);
     const desc = lines.length > 1
-      ? `<ul style="margin:4px 0;padding-left:18px">${lines.map(l => `<li>${escapeHtml(l)}</li>`).join('')}</ul>`
-      : lines[0] ? `<p style="margin:4px 0">${escapeHtml(lines[0])}</p>` : '';
+      ? `<ul style="margin:4px 0;padding-left:18px">${lines.map(l => `<li>${boldify(escapeHtml(l))}</li>`).join('')}</ul>`
+      : lines[0] ? `<p style="margin:4px 0">${boldify(escapeHtml(lines[0]))}</p>` : '';
     return `<div style="margin-bottom:10px"><strong>${e.role || ''}${e.company ? ` — ${e.company}` : ''}</strong>${e.period ? `<br><span style="font-size:.8em;opacity:.7">${e.period}</span>` : ''}${desc}</div>`;
   }).join('');
 
@@ -716,7 +731,7 @@ function editorToHtml(d: EditorData): string {
     const key = `custom:${cs.id}`;
     const heading = escapeHtml(cs.heading?.trim() || 'Section');
     const rawText = cs.text ?? '';
-    const renderedText = rawText.trim() ? (isHtml(rawText) ? rawText : `<p>${escapeHtml(rawText).replace(/\n/g,'<br>')}</p>`) : '';
+    const renderedText = rawText.trim() ? (isHtml(rawText) ? rawText : `<p>${boldify(escapeHtml(rawText)).replace(/\n/g,'<br>')}</p>`) : '';
     sections[key] = `<section data-cv-section="${key}"><h2>${heading}</h2>${renderedText}</section>`;
   }
 
@@ -764,7 +779,7 @@ const emptyEditor = (): EditorData => ({
   photoDataUrl: '',
   sectionOrder: ['summary', 'experience', 'education', 'skills'],
   customSections: [],
-  fullName: '', email: '', phone: '', location: '', nationality: '', linkedin: '', website: '', github: '', portfolio: '',
+  fullName: '', email: '', phone: '', location: '', nationality: '', linkedin: '', linkedinUrl: '', website: '', github: '', portfolio: '',
   signaturePlaceDate: '', signatureDataUrl: '',
   summary: '', experience: [], education: [], skills: '',
 });
@@ -918,7 +933,7 @@ async function onCvFileSelect(e: Event) {
     formData.append('file', file);
     formData.append('title', file.name.replace(/\.[^.]+$/, '') || 'My CV');
 
-    const { data } = await axios.post('/api/cvs', formData);
+    const { data } = await api.post('/cvs', formData);
     const cv = data.data;
     const parsed = cv?.parsedData;
     // Track the backend CV id so subsequent saves update the same record
@@ -942,59 +957,56 @@ async function onCvFileSelect(e: Event) {
     if (parsed) {
       const p = parsed.personal || parsed;
       const customSections: CustomSection[] = [];
-      const sectionOrder: CvSectionKey[] = ['summary', 'experience', 'education', 'skills'];
 
-      // Certifications → custom section
-      if (parsed.certifications?.length) {
-        const id = `sec_certs_${Date.now()}`;
-        customSections.push({
-          id,
-          heading: 'Certifications',
+      // Use section order from AI if available, otherwise default
+      const aiOrder: string[] = parsed.section_order?.length
+        ? parsed.section_order
+        : ['summary', 'experience', 'education', 'skills', 'certifications', 'languages', 'leadership', 'interests', 'additional_information'];
+      const sectionOrder: CvSectionKey[] = aiOrder.filter(k => ['summary', 'experience', 'education', 'skills'].includes(k)) as CvSectionKey[];
+
+      // Build custom sections and insert them at the correct position based on AI section order
+      const customSectionMap: Record<string, { heading: string; text: string; id: string } | null> = {
+        certifications: parsed.certifications?.length ? {
+          id: `sec_certs_${Date.now()}`,
+          heading: 'Professional Qualification',
           text: parsed.certifications.map((c: any) =>
             [c.name, c.institution, c.dates, c.details].filter(Boolean).join(' — ')
           ).join('\n'),
-        });
-        sectionOrder.push(`custom:${id}` as CvSectionKey);
-      }
-
-      // Languages → custom section
-      if (parsed.languages?.length) {
-        const id = `sec_langs_${Date.now()}`;
-        customSections.push({
-          id,
-          heading: 'Languages',
+        } : null,
+        languages: parsed.languages?.length ? {
+          id: `sec_langs_${Date.now() + 1}`,
+          heading: 'Language Skills',
           text: parsed.languages.map((l: any) =>
             l.level ? `${l.language} (${l.level})` : l.language
           ).join(', '),
-        });
-        sectionOrder.push(`custom:${id}` as CvSectionKey);
-      }
-
-      // Leadership → custom section
-      if (parsed.leadership?.length) {
-        const id = `sec_lead_${Date.now()}`;
-        customSections.push({
-          id,
-          heading: 'Leadership',
+        } : null,
+        leadership: parsed.leadership?.length ? {
+          id: `sec_lead_${Date.now() + 2}`,
+          heading: 'Leadership Development',
           text: parsed.leadership.map((l: any) =>
             [l.title, l.organization, l.dates, l.description].filter(Boolean).join(' — ')
           ).join('\n'),
-        });
-        sectionOrder.push(`custom:${id}` as CvSectionKey);
-      }
+        } : null,
+        interests: parsed.interests ? {
+          id: `sec_int_${Date.now() + 3}`,
+          heading: 'Interests',
+          text: parsed.interests,
+        } : null,
+        additional_information: parsed.additional_information ? {
+          id: `sec_add_${Date.now() + 4}`,
+          heading: 'Additional Information',
+          text: parsed.additional_information,
+        } : null,
+      };
 
-      // Interests → custom section
-      if (parsed.interests) {
-        const id = `sec_int_${Date.now()}`;
-        customSections.push({ id, heading: 'Interests', text: parsed.interests });
-        sectionOrder.push(`custom:${id}` as CvSectionKey);
-      }
-
-      // Additional info → custom section
-      if (parsed.additional_information) {
-        const id = `sec_add_${Date.now()}`;
-        customSections.push({ id, heading: 'Additional Information', text: parsed.additional_information });
-        sectionOrder.push(`custom:${id}` as CvSectionKey);
+      // Insert custom sections at position matching AI order
+      for (const key of aiOrder) {
+        if (['summary', 'experience', 'education', 'skills'].includes(key)) continue;
+        const cs = customSectionMap[key];
+        if (cs) {
+          customSections.push(cs);
+          sectionOrder.push(`custom:${cs.id}` as CvSectionKey);
+        }
       }
 
       Object.assign(editorData, {
@@ -1002,12 +1014,14 @@ async function onCvFileSelect(e: Event) {
         sectionOrder,
         customSections,
         photoDataUrl: parsed.photoDataUrl || '',
+        signatureDataUrl: parsed.signatureDataUrl || '',
         fullName: p.name || '',
         email: p.email || '',
         phone: p.phone || '',
         location: p.location || '',
         nationality: p.nationality || '',
         linkedin: p.linkedin || '',
+        linkedinUrl: p.linkedin_url || '',
         website: p.website || '',
         github: p.github || '',
         portfolio: p.portfolio || '',
@@ -1018,7 +1032,7 @@ async function onCvFileSelect(e: Event) {
           company: exp.company || '',
           role: exp.title || '',
           period: exp.dates || '',
-          description: exp.description || '',
+          description: (exp.description || '').split('\n').map((l: string) => l.replace(/^[-•]\s*/, '').trim()).filter(Boolean).join('\n'),
         })),
         education: (parsed.education || []).map((edu: any) => ({
           id: `edu_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
@@ -1048,7 +1062,7 @@ async function handleExportPdf() {
     const contentHtml = editorToHtml(editorData);
     const filename = `${(editorData.fullName || 'CV').replace(/[^a-z0-9_\- ]+/gi, '_')}.pdf`;
 
-    const response = await axios.post('/api/cvs/export', {
+    const response = await api.post('/cvs/export', {
       contentHtml,
       style: editorData.style,
       filename,
@@ -1085,7 +1099,7 @@ async function handleSaveVersion() {
 
   try {
     if (editingVersionId.value) {
-      await axios.put(`/api/cvs/${editingVersionId.value}`, {
+      await api.put(`/api/cvs/${editingVersionId.value}`, {
         title: name,
         editorData: editorState,
         htmlContent: content,
@@ -1095,7 +1109,7 @@ async function handleSaveVersion() {
       const v = cvVersions.value.find(v => v.id === editingVersionId.value);
       if (v) { v.name = name; v.label = name; v.content = content; v.style = editorData.style; v.language = editorData.language; }
     } else {
-      const { data } = await axios.post('/api/cvs/create', {
+      const { data } = await api.post('/cvs/create', {
         title: name,
         editorData: editorState,
         htmlContent: content,
@@ -1123,7 +1137,7 @@ async function handleSaveVersion() {
 
 async function openCvVersion(v: CvVersion) {
   try {
-    const { data } = await axios.get(`/api/cvs/${v.id}`);
+    const { data } = await api.get(`/api/cvs/${v.id}`);
     const cv = data.data;
     if (cv.editorData) {
       Object.assign(editorData, {
@@ -1148,7 +1162,7 @@ async function openCvVersion(v: CvVersion) {
 
 async function deleteCvVersion(id: string) {
   try {
-    await axios.delete(`/api/cvs/${id}`);
+    await api.delete(`/api/cvs/${id}`);
     cvVersions.value = cvVersions.value.filter(v => v.id !== id);
   } catch (err) {
     console.error('Failed to delete CV:', err);
@@ -1157,7 +1171,7 @@ async function deleteCvVersion(id: string) {
 
 onMounted(async () => {
   try {
-    const { data } = await axios.get('/api/cvs');
+    const { data } = await api.get('/cvs');
     cvVersions.value = (data.data || []).map((cv: any) => ({
       id: cv.id,
       name: cv.title,

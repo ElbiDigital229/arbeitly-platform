@@ -72,7 +72,7 @@
 // TODO: Wire up to onboarding API endpoint POST /api/onboarding
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
-import axios from 'axios';
+import api from '../services/api';
 
 const router = useRouter();
 
@@ -91,7 +91,7 @@ async function handleOnboarding() {
   apiError.value = '';
   loading.value = true;
   try {
-    await axios.post('/api/onboarding', form.value);
+    await api.post('/onboarding', form.value);
     router.push('/dashboard');
   } catch (err: unknown) {
     const e = err as { response?: { data?: { error?: string } } };

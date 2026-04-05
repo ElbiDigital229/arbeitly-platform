@@ -3,40 +3,17 @@ import { paymentService } from '../services/payment.service.js';
 import { success } from '../utils/response.js';
 
 export const paymentController = {
-  createCheckout: (async (req, res, next) => {
+  purchasePlan: (async (req, res, next) => {
     try {
-      const result = await paymentService.createCheckoutSession(req.user!.id, req.user!.email, req.body);
+      const result = await paymentService.purchasePlan(req.user!.id, req.body.planId);
       success(res, result);
-    } catch (err) {
-      next(err);
-    }
+    } catch (err) { next(err); }
   }) as RequestHandler,
 
-  webhook: (async (req, res, next) => {
+  getCurrentPlan: (async (req, res, next) => {
     try {
-      const signature = req.headers['stripe-signature'] as string;
-      const result = await paymentService.handleWebhookEvent(req.body as Buffer, signature);
+      const result = await paymentService.getCurrentPlan(req.user!.id);
       success(res, result);
-    } catch (err) {
-      next(err);
-    }
-  }) as RequestHandler,
-
-  createPortal: (async (req, res, next) => {
-    try {
-      const result = await paymentService.createPortalSession(req.user!.id);
-      success(res, result);
-    } catch (err) {
-      next(err);
-    }
-  }) as RequestHandler,
-
-  getSubscription: (async (req, res, next) => {
-    try {
-      const subscription = await paymentService.getSubscription(req.user!.id);
-      success(res, subscription);
-    } catch (err) {
-      next(err);
-    }
+    } catch (err) { next(err); }
   }) as RequestHandler,
 };

@@ -320,7 +320,7 @@
 
 <script setup lang="ts">
 import { ref, computed, reactive, onMounted } from 'vue';
-import axios from 'axios';
+import api from '../../services/api';
 
 export type AppStatus = 'TO_APPLY' | 'APPLIED' | 'INTERVIEW' | 'ACCEPTED' | 'REJECTED';
 
@@ -447,8 +447,8 @@ const filtered = computed(() => {
 onMounted(async () => {
   try {
     const [appsRes, cvsRes] = await Promise.all([
-      axios.get('/api/applications'),
-      axios.get('/api/cvs').catch(() => ({ data: { data: [] } })),
+      api.get('/applications'),
+      api.get('/cvs').catch(() => ({ data: { data: [] } })),
     ]);
     apps.value = (appsRes.data.data || []).map(mapFromApi);
     cvOptions.value = (cvsRes.data.data || []).map((cv: any) => ({ id: cv.id, title: cv.title }));
@@ -506,7 +506,7 @@ async function handleSave() {
 
   if (editingId.value) {
     try {
-      const { data } = await axios.put(`/api/applications/${editingId.value}`, payload);
+      const { data } = await api.put(`/api/applications/${editingId.value}`, payload);
       const idx = apps.value.findIndex(a => a.id === editingId.value);
       if (idx >= 0) apps.value[idx] = mapFromApi(data.data);
     } catch (err) {
@@ -521,7 +521,7 @@ async function handleSave() {
       return;
     }
     try {
-      const { data } = await axios.post('/api/applications', payload);
+      const { data } = await api.post('/applications', payload);
       apps.value.unshift(mapFromApi(data.data));
     } catch (err) {
       console.error('Failed to create application:', err);
@@ -535,7 +535,7 @@ async function handleSave() {
 
 async function handleDelete(id: string) {
   try {
-    await axios.delete(`/api/applications/${id}`);
+    await api.delete(`/api/applications/${id}`);
     apps.value = apps.value.filter(a => a.id !== id);
   } catch (err) {
     console.error('Failed to delete application:', err);
@@ -611,7 +611,7 @@ async function handleCsvImport() {
   })).filter((r: any) => r.jobTitle && r.companyName);
 
   try {
-    const { data } = await axios.post('/api/applications/bulk', { applications: mapped });
+    const { data } = await api.post('/applications/bulk', { applications: mapped });
     const newApps = (data.data || []).map(mapFromApi);
     apps.value = [...newApps, ...apps.value];
   } catch (err) {
@@ -629,7 +629,7 @@ async function handleStatusChange(id: string, status: AppStatus) {
   const prev = app.status;
   app.status = status; // optimistic update
   try {
-    await axios.put(`/api/applications/${id}`, { status });
+    await api.put(`/api/applications/${id}`, { status });
   } catch (err) {
     app.status = prev; // revert on failure
     console.error('Failed to update status:', err);

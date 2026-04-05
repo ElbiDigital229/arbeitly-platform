@@ -73,6 +73,7 @@ const customerItems = [
   { to: '/superadmin/candidates', icon: 'mdi-account-group-outline', label: 'Candidates' },
   { to: '/superadmin/employees', icon: 'mdi-badge-account-outline', label: 'Employees' },
   { to: '/superadmin/plans', icon: 'mdi-tag-outline', label: 'Pricing Plans' },
+  { to: '/superadmin/performance', icon: 'mdi-chart-line', label: 'Performance' },
 ];
 const configItems = [
   { to: '/superadmin/ai-config', icon: 'mdi-brain', label: 'AI Config' },
@@ -86,6 +87,7 @@ const pageTitles: Record<string, string> = {
   '/superadmin/candidates': 'Candidates',
   '/superadmin/employees': 'Employees',
   '/superadmin/plans': 'Pricing Plans',
+  '/superadmin/performance': 'Employee Performance',
   '/superadmin/ai-config': 'AI Configuration',
   '/superadmin/audit-log': 'Audit Log',
   '/superadmin/system-settings': 'System Settings',

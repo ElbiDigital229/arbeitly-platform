@@ -17,6 +17,42 @@ async function extractTextFromPdf(buffer: Buffer): Promise<string> {
   return pages.join('\n\n');
 }
 
+/**
+ * Extract all hyperlink URLs from a PDF.
+ * Returns an array of { url, text } where text is nearby display text.
+ */
+async function extractLinksFromPdf(buffer: Buffer): Promise<{ url: string; text: string }[]> {
+  const data = new Uint8Array(buffer);
+  const doc = await getDocument({ data, useSystemFonts: true }).promise;
+  const links: { url: string; text: string }[] = [];
+
+  for (let i = 1; i <= doc.numPages; i++) {
+    const page = await doc.getPage(i);
+    const annotations = await page.getAnnotations();
+    for (const ann of annotations) {
+      if (ann.subtype === 'Link' && ann.url) {
+        // Try to find display text near the annotation rectangle
+        const content = await page.getTextContent();
+        const rect = ann.rect; // [x1, y1, x2, y2]
+        let displayText = '';
+        for (const item of content.items as any[]) {
+          if ('str' in item && item.transform) {
+            const [, , , , tx, ty] = item.transform;
+            // Check if text position overlaps with annotation rect
+            if (tx >= rect[0] - 5 && tx <= rect[2] + 5 && ty >= rect[1] - 5 && ty <= rect[3] + 5) {
+              displayText += item.str;
+            }
+          }
+        }
+        links.push({ url: ann.url, text: displayText.trim() });
+      }
+    }
+  }
+
+  await doc.destroy();
+  return links;
+}
+
 export interface ParsedCVData {
   personal: {
     name: string;
@@ -25,10 +61,12 @@ export interface ParsedCVData {
     location: string;
     nationality: string;
     linkedin: string;
+    linkedin_url: string;
     website: string;
     github: string;
     portfolio: string;
   };
+  section_order: string[];
   summary: string;
   experience: {
     title: string;
@@ -64,6 +102,7 @@ export interface ParsedCVData {
   }[];
   interests: string;
   additional_information: string;
+  photoDataUrl?: string;
 }
 
 export const aiService = {
@@ -77,11 +116,15 @@ CRITICAL RULES:
 - If a field has no data in the CV, use "" or [].
 - Copy text verbatim — do not rephrase or summarize bullet points.
 - Each job/degree/cert gets its own entry.
-- For experience "description": join all bullet points with "\\n- " prefix per line.
+- For experience "description": join all bullet points with "\\n" between lines. Do NOT prefix lines with "- " or "• " — just the plain text of each bullet.
 - For skills: flat array of individual skills, not categories.
+- For "linkedin": extract the display text (e.g. the person's name as shown).
+- For "linkedin_url": extract the actual URL if present (e.g. "https://linkedin.com/in/..."). If no URL, use "".
+- "section_order": Return an array of section keys in the EXACT order they appear in the original CV. Use these keys: "summary", "experience", "education", "skills", "certifications", "languages", "leadership", "interests", "additional_information". Only include sections that exist in the CV.
+- When key figures appear in text (monetary amounts like "€ 280 million", "€ 5 billion", percentages, or notable achievements like "Gold Medal"), wrap them in **bold** markers like this: **€ 280 million**. This helps preserve emphasis from the original document.
 
 JSON structure:
-{"personal":{"name":"","email":"","phone":"","location":"","nationality":"","linkedin":"","website":"","github":"","portfolio":""},"summary":"","experience":[{"title":"","company":"","dates":"","description":""}],"education":[{"degree":"","institution":"","dates":"","gpa":"","courses":"","awards":"","details":""}],"certifications":[{"name":"","institution":"","dates":"","details":""}],"skills":[],"languages":[{"language":"","level":""}],"leadership":[{"title":"","organization":"","dates":"","description":""}],"interests":"","additional_information":""}`;
+{"personal":{"name":"","email":"","phone":"","location":"","nationality":"","linkedin":"","linkedin_url":"","website":"","github":"","portfolio":""},"section_order":[],"summary":"","experience":[{"title":"","company":"","dates":"","description":""}],"education":[{"degree":"","institution":"","dates":"","gpa":"","courses":"","awards":"","details":""}],"certifications":[{"name":"","institution":"","dates":"","details":""}],"skills":[],"languages":[{"language":"","level":""}],"leadership":[{"title":"","organization":"","dates":"","description":""}],"interests":"","additional_information":""}`;
 
     let messageContent: Anthropic.MessageParam['content'];
 
@@ -145,6 +188,36 @@ JSON structure:
 
     try {
       const parsed: ParsedCVData = JSON.parse(jsonText);
+
+      // Enrich with PDF hyperlinks if available
+      if (mimeType === 'application/pdf') {
+        try {
+          const links = await extractLinksFromPdf(fileBuffer);
+          if (links.length > 0) {
+            // Find LinkedIn URL
+            const linkedinLink = links.find(l => l.url.includes('linkedin.com'));
+            if (linkedinLink && !parsed.personal.linkedin_url) {
+              parsed.personal.linkedin_url = linkedinLink.url;
+              if (!parsed.personal.linkedin) {
+                parsed.personal.linkedin = linkedinLink.text || parsed.personal.name;
+              }
+            }
+            // Find other URLs (website, github, portfolio)
+            for (const link of links) {
+              if (link.url.includes('linkedin.com')) continue;
+              if (link.url.includes('github.com') && !parsed.personal.github) {
+                parsed.personal.github = link.url;
+              } else if (!parsed.personal.website && !link.url.includes('mailto:')) {
+                parsed.personal.website = link.url;
+              }
+            }
+          }
+          console.log('[AI] Extracted PDF links:', links.length);
+        } catch (err: any) {
+          console.error('Link extraction failed (non-fatal):', err?.message);
+        }
+      }
+
       return parsed;
     } catch (parseErr) {
       console.error('JSON parse failed. Raw response (first 500 chars):', jsonText.slice(0, 500));

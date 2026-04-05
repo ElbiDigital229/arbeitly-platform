@@ -86,14 +86,14 @@
 <script setup lang="ts">
 // TODO: Fetch real stats from GET /api/applications
 import { ref, onMounted } from 'vue';
-import axios from 'axios';
+import api from '../services/api';
 import AppLayout from '../components/AppLayout.vue';
 
 const stats = ref({ total: 0, applied: 0, interview: 0, offer: 0 });
 
 onMounted(async () => {
   try {
-    const { data } = await axios.get('/api/applications');
+    const { data } = await api.get('/applications');
     const apps = data.data as { status: string }[];
     stats.value = {
       total: apps.length,

@@ -197,7 +197,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import axios from 'axios';
+import api from '../../services/api';
 
 interface CvFile {
   id: string;
@@ -244,7 +244,7 @@ const previewHtml = computed(() => {
 
 onMounted(async () => {
   try {
-    const { data } = await axios.get('/api/cvs');
+    const { data } = await api.get('/cvs');
     cvs.value = data.data || [];
     if (cvs.value.length > 0) {
       selected.value = cvs.value[0];
@@ -377,7 +377,7 @@ async function downloadPdf(cv: CvFile) {
   if (!html) return;
   downloading.value = cv.id;
   try {
-    const response = await axios.post('/api/cvs/export', {
+    const response = await api.post('/cvs/export', {
       contentHtml: html,
       style: cv.style || 'modern',
       filename: `${cv.title}.pdf`,
@@ -407,7 +407,7 @@ async function executeDelete() {
   if (!deleteTarget.value) return;
   deleting.value = true;
   try {
-    await axios.delete(`/api/cvs/${deleteTarget.value.id}`);
+    await api.delete(`/api/cvs/${deleteTarget.value.id}`);
     cvs.value = cvs.value.filter(c => c.id !== deleteTarget.value!.id);
     if (selected.value?.id === deleteTarget.value.id) {
       selected.value = cvs.value[0] || null;

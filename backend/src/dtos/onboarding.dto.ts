@@ -6,6 +6,7 @@ export const OnboardingDto = z.object({
   phone: z.string().optional(),
   location: z.string().optional(),
   bio: z.string().optional(),
+  baseCoverLetter: z.string().optional(),
 });
 
 export type OnboardingDtoType = z.infer<typeof OnboardingDto>;

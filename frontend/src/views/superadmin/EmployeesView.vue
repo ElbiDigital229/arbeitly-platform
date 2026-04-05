@@ -93,7 +93,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import axios from 'axios';
+import api from '../../services/api';
 import { useAdminStore } from '../../stores/admin';
 
 const store = useAdminStore();
@@ -115,7 +115,7 @@ async function createEmployee() {
   createError.value = '';
   creating.value = true;
   try {
-    const { data } = await axios.post('/api/admin/employees', { email: newEmail.value, password: newPassword.value }, { headers: store.getAuthHeaders() });
+    const { data } = await api.post('/admin/employees', { email: newEmail.value, password: newPassword.value }, { headers: store.getAuthHeaders() });
     employees.value.unshift({ ...data.data, _count: { assignedCandidates: 0 }, createdAt: new Date().toISOString() });
     showCreate.value = false;
     newEmail.value = '';
@@ -131,7 +131,7 @@ async function executeDelete() {
   if (!deleteTarget.value) return;
   deleting.value = true;
   try {
-    await axios.delete(`/api/admin/employees/${deleteTarget.value.id}`, { headers: store.getAuthHeaders() });
+    await api.delete(`/admin/employees/${deleteTarget.value.id}`, { headers: store.getAuthHeaders() });
     employees.value = employees.value.filter(e => e.id !== deleteTarget.value.id);
     deleteTarget.value = null;
   } catch (err) { console.error(err); }
@@ -140,7 +140,7 @@ async function executeDelete() {
 
 onMounted(async () => {
   try {
-    const { data } = await axios.get('/api/admin/employees', { headers: store.getAuthHeaders() });
+    const { data } = await api.get('/admin/employees', { headers: store.getAuthHeaders() });
     employees.value = data.data || [];
   } catch (err) { console.error(err); }
   finally { loading.value = false; }

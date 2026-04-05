@@ -11,7 +11,7 @@ export const userRepository = {
   },
 
   async findByIdWithProfile(id: string) {
-    return prisma.user.findUnique({ where: { id }, include: { profile: true } });
+    return prisma.user.findUnique({ where: { id }, include: { profile: { include: { plan: true } } } });
   },
 
   async create(data: { email: string; password: string; role?: Role }) {

@@ -6,7 +6,20 @@ import { validate } from '../middleware/validate.middleware.js';
 import { CreateCVDto, UpdateCVDto } from '../dtos/cv.dto.js';
 
 const router = Router();
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  fileFilter: (_req, file, cb) => {
+    const allowed = [
+      'application/pdf',
+      'image/jpeg',
+      'image/png',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    ];
+    if (allowed.includes(file.mimetype)) cb(null, true);
+    else cb(new Error('Invalid file type. Allowed: PDF, JPEG, PNG, DOCX') as any, false);
+  },
+});
 
 router.use(authenticate);
 

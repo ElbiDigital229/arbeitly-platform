@@ -93,7 +93,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import axios from 'axios';
+import api from '../../services/api';
 import { useEmployeeStore } from '../../stores/employee';
 
 const store = useEmployeeStore();
@@ -123,7 +123,7 @@ function candidateInitials(c: any) {
 
 onMounted(async () => {
   try {
-    const { data } = await axios.get('/api/employee/candidates', { headers: store.getAuthHeaders() });
+    const { data } = await api.get('/employee/candidates', { headers: store.getAuthHeaders() });
     candidates.value = data.data || [];
   } catch (err) {
     console.error('Failed to load candidates:', err);

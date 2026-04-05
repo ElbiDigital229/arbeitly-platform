@@ -134,6 +134,72 @@ export const employeeService = {
     return { candidateCount, totalApplications: totalApps, interviews, accepted };
   },
 
+  async verifyAssignment(employeeId: string, candidateId: string) {
+    const candidate = await prisma.user.findFirst({
+      where: { id: candidateId, assignedEmployeeId: employeeId },
+    });
+    if (!candidate) throw HttpError.notFound('Candidate not found or not assigned to you');
+    return candidate;
+  },
+
+  async getCandidateOnboarding(employeeId: string, candidateId: string) {
+    await this.verifyAssignment(employeeId, candidateId);
+    const profile = await prisma.candidateProfile.findUnique({ where: { userId: candidateId } });
+    if (!profile) throw HttpError.notFound('Candidate profile not found');
+    return {
+      firstName: profile.firstName,
+      lastName: profile.lastName,
+      phone: profile.phone,
+      location: profile.location,
+      bio: profile.bio,
+      linkedinUrl: profile.linkedinUrl,
+      portfolioUrl: profile.portfolioUrl,
+      baseCoverLetter: profile.baseCoverLetter,
+      onboardingCompleted: profile.onboardingCompleted,
+    };
+  },
+
+  async getCandidateCVs(employeeId: string, candidateId: string) {
+    await this.verifyAssignment(employeeId, candidateId);
+    return prisma.cV.findMany({
+      where: { userId: candidateId },
+      include: {
+        children: { include: { children: true }, orderBy: { createdAt: 'desc' } },
+      },
+      orderBy: [{ isBase: 'desc' }, { createdAt: 'desc' }],
+    });
+  },
+
+  async getCandidateCLs(employeeId: string, candidateId: string) {
+    await this.verifyAssignment(employeeId, candidateId);
+    return prisma.coverLetter.findMany({
+      where: { userId: candidateId },
+      include: {
+        children: { include: { children: true }, orderBy: { createdAt: 'desc' } },
+      },
+      orderBy: [{ isBase: 'desc' }, { createdAt: 'desc' }],
+    });
+  },
+
+  async getPerformanceStats(employeeId: string) {
+    const apps = await prisma.application.findMany({
+      where: { addedById: employeeId },
+      select: { status: true },
+    });
+    const jobsAdded = await prisma.jobDiscovery.count({ where: { addedById: employeeId } });
+    const applied = apps.filter(a => a.status !== 'TO_APPLY').length;
+    const interviews = apps.filter(a => a.status === 'INTERVIEW').length;
+    const accepted = apps.filter(a => a.status === 'ACCEPTED').length;
+
+    return {
+      applicationsFiled: applied,
+      interviews,
+      accepted,
+      interviewRatio: applied > 0 ? Math.round((interviews / applied) * 100) : 0,
+      jobsAdded,
+    };
+  },
+
   async updateProfile(employeeId: string, data: { email?: string }) {
     return prisma.user.update({ where: { id: employeeId }, data });
   },

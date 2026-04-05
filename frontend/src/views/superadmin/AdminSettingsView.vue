@@ -45,7 +45,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
-import axios from 'axios';
+import api from '../../services/api';
 import { useAdminStore } from '../../stores/admin';
 
 const store = useAdminStore();
@@ -59,7 +59,7 @@ async function savePassword() {
   if (pw.value.next.length < 8) { pwError.value = 'Min 8 characters.'; return; }
   saving.value = true;
   try {
-    await axios.put('/api/admin/change-password', { currentPassword: pw.value.current, newPassword: pw.value.next }, { headers: store.getAuthHeaders() });
+    await api.put('/admin/change-password', { currentPassword: pw.value.current, newPassword: pw.value.next }, { headers: store.getAuthHeaders() });
     pw.value = { current: '', next: '' };
     saved.value = true;
     setTimeout(() => { saved.value = false; }, 3000);

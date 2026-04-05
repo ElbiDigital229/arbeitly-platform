@@ -50,6 +50,46 @@ export const adminController = {
     try { await adminService.deleteEmployee(req.params.id); success(res, { message: 'Deleted' }); } catch (err) { next(err); }
   }) as RequestHandler,
 
+  getPlans: (async (_req, res, next) => {
+    try { success(res, await adminService.getPlans()); } catch (err) { next(err); }
+  }) as RequestHandler,
+
+  createPlan: (async (req, res, next) => {
+    try { success(res, await adminService.createPlan(req.body), 201); } catch (err) { next(err); }
+  }) as RequestHandler,
+
+  updatePlan: (async (req, res, next) => {
+    try { success(res, await adminService.updatePlan(req.params.id, req.body)); } catch (err) { next(err); }
+  }) as RequestHandler,
+
+  deletePlan: (async (req, res, next) => {
+    try { await adminService.deletePlan(req.params.id); success(res, { message: 'Plan deleted' }); } catch (err) { next(err); }
+  }) as RequestHandler,
+
+  getPrompts: (async (_req, res, next) => {
+    try { success(res, await adminService.getPrompts()); } catch (err) { next(err); }
+  }) as RequestHandler,
+
+  createPrompt: (async (req, res, next) => {
+    try { success(res, await adminService.createPrompt(req.body), 201); } catch (err) { next(err); }
+  }) as RequestHandler,
+
+  updatePrompt: (async (req, res, next) => {
+    try { success(res, await adminService.updatePrompt(req.params.id, req.body)); } catch (err) { next(err); }
+  }) as RequestHandler,
+
+  deletePrompt: (async (req, res, next) => {
+    try { await adminService.deletePrompt(req.params.id); success(res, { message: 'Prompt deleted' }); } catch (err) { next(err); }
+  }) as RequestHandler,
+
+  getEmployeePerformance: (async (_req, res, next) => {
+    try { success(res, await adminService.getEmployeePerformance()); } catch (err) { next(err); }
+  }) as RequestHandler,
+
+  getEmployeePerformanceDetail: (async (req, res, next) => {
+    try { success(res, await adminService.getEmployeePerformanceDetail(req.params.id)); } catch (err) { next(err); }
+  }) as RequestHandler,
+
   changePassword: (async (req, res, next) => {
     try {
       const { currentPassword, newPassword } = req.body;

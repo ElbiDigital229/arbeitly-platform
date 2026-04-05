@@ -33,28 +33,53 @@ model User {
 
   profile            CandidateProfile?
   cvs                CV[]
+  coverLetters       CoverLetter[]
   applications       Application[]
   assignedEmployee   User?    @relation("EmployeeCandidates", fields: [assignedEmployeeId], references: [id])
   assignedCandidates User[]   @relation("EmployeeCandidates")
+  addedJobs          JobDiscovery[]
+  queueItemsAsCandidate CandidateJobQueue[] @relation("QueueCandidate")
+  queueItemsAsEmployee  CandidateJobQueue[] @relation("QueueEmployee")
+}
+
+model Plan {
+  id               String   @id @default(cuid())
+  name             String
+  description      String?
+  price            Float
+  currency         String   @default("EUR")
+  applicationLimit Int
+  features         Json     @default("[]")
+  isActive         Boolean  @default(true)
+  isPopular        Boolean  @default(false)
+  sortOrder        Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  candidates CandidateProfile[]
 }
 
 model CandidateProfile {
-  id                  String   @id @default(cuid())
-  userId              String   @unique
-  firstName           String
-  lastName            String
-  phone               String?
-  location            String?
-  bio                 String?
-  linkedinUrl         String?
-  portfolioUrl        String?
-  onboardingCompleted Boolean  @default(false)
-  cvCreationLimit     Int      @default(10)
-  cvCreationsUsed     Int      @default(0)
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  id                   String   @id @default(cuid())
+  userId               String   @unique
+  firstName            String
+  lastName             String
+  phone                String?
+  location             String?
+  bio                  String?
+  linkedinUrl          String?
+  portfolioUrl         String?
+  onboardingCompleted  Boolean  @default(false)
+  planId               String?
+  cvCreationLimit      Int      @default(10)
+  cvCreationsUsed      Int      @default(0)
+  applicationLimitUsed Int      @default(0)
+  baseCoverLetter      String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan Plan? @relation(fields: [planId], references: [id])
 }
 
 model CV {
@@ -67,10 +92,40 @@ model CV {
   htmlContent     String?
   style           String?
   language        String?
+  isBase          Boolean  @default(false)
+  parentId        String?
+  parentType      String?
+  generatedForJobId String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent CV?  @relation("CVVersions", fields: [parentId], references: [id])
+  children CV[] @relation("CVVersions")
+  generatedForJob JobDiscovery? @relation(fields: [generatedForJobId], references: [id])
+  queueItems CandidateJobQueue[]
+
+  @@index([userId])
+}
+
+model CoverLetter {
+  id         String   @id @default(cuid())
+  userId     String
+  title      String
+  content    String
+  editorData Json?
+  language   String?
+  isBase     Boolean  @default(false)
+  parentId   String?
+  parentType String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent   CoverLetter? @relation("CLVersions", fields: [parentId], references: [id])
+  children CoverLetter[] @relation("CLVersions")
+
+  @@index([userId])
 }
 
 model Application {
@@ -90,8 +145,62 @@ model Application {
   references     String?
   addedById      String?
   source         String?           @default("self")
+  screenshotKey  String?
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model AdminPrompt {
+  id        String   @id @default(cuid())
+  type      String
+  name      String
+  prompt    String
+  isActive  Boolean  @default(true)
+  version   Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model JobDiscovery {
+  id           String   @id @default(cuid())
+  title        String
+  company      String
+  url          String?
+  description  String?
+  location     String?
+  salary       String?
+  requirements String?
+  source       String   @default("manual")
+  addedById    String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  addedBy    User                @relation(fields: [addedById], references: [id])
+  queueItems CandidateJobQueue[]
+  generatedCvs CV[]
+
+  @@index([addedById])
+}
+
+model CandidateJobQueue {
+  id             String   @id @default(cuid())
+  candidateId    String
+  jobId          String
+  employeeId     String
+  relevanceScore Float?
+  status         String   @default("PENDING")
+  generatedCvId  String?
+  createdAt      DateTime @default(now())
+
+  candidate   User          @relation("QueueCandidate", fields: [candidateId], references: [id])
+  job         JobDiscovery  @relation(fields: [jobId], references: [id])
+  employee    User          @relation("QueueEmployee", fields: [employeeId], references: [id])
+  generatedCv CV?           @relation(fields: [generatedCvId], references: [id])
+
+  @@index([candidateId])
+  @@index([jobId])
 }
