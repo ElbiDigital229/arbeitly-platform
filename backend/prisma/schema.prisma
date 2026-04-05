@@ -1,0 +1,97 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CANDIDATE
+  EMPLOYEE
+  EMPLOYER
+  ADMIN
+}
+
+enum ApplicationStatus {
+  TO_APPLY
+  APPLIED
+  INTERVIEW
+  ACCEPTED
+  REJECTED
+}
+
+model User {
+  id                 String   @id @default(cuid())
+  email              String   @unique
+  password           String
+  role               Role     @default(CANDIDATE)
+  assignedEmployeeId String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  profile            CandidateProfile?
+  cvs                CV[]
+  applications       Application[]
+  assignedEmployee   User?    @relation("EmployeeCandidates", fields: [assignedEmployeeId], references: [id])
+  assignedCandidates User[]   @relation("EmployeeCandidates")
+}
+
+model CandidateProfile {
+  id                  String   @id @default(cuid())
+  userId              String   @unique
+  firstName           String
+  lastName            String
+  phone               String?
+  location            String?
+  bio                 String?
+  linkedinUrl         String?
+  portfolioUrl        String?
+  onboardingCompleted Boolean  @default(false)
+  cvCreationLimit     Int      @default(10)
+  cvCreationsUsed     Int      @default(0)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model CV {
+  id              String   @id @default(cuid())
+  userId          String
+  title           String
+  originalFileKey String?
+  parsedData      Json?
+  editorData      Json?
+  htmlContent     String?
+  style           String?
+  language        String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Application {
+  id             String            @id @default(cuid())
+  userId         String
+  companyName    String
+  jobTitle       String
+  jobUrl         String?
+  status         ApplicationStatus @default(TO_APPLY)
+  appliedAt      DateTime?
+  notes          String?
+  salary         String?
+  contactPerson  String?
+  nextAction     String?
+  jobDescription String?
+  cvUsed         String?
+  references     String?
+  addedById      String?
+  source         String?           @default("self")
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
