@@ -29,8 +29,8 @@ if [ ! -f .env ]; then
   echo "  Created backend/.env — update ANTHROPIC_API_KEY if needed."
 fi
 
-echo "==> Running database migrations..."
-bun run db:migrate
+echo "==> Pushing database schema..."
+bun run db:push
 
 echo "==> (Optional) Seeding demo data..."
 bun run db:seed || true
@@ -59,5 +59,7 @@ echo "    Frontend:     http://localhost:5173"
 echo "    MinIO UI:     http://localhost:9001  (minioadmin / minioadmin)"
 echo "    Prisma Studio: cd backend && bun run db:studio"
 echo ""
-echo "  Demo account:  demo@arbeitly.com / password123"
+echo "  Seed accounts:"
+echo "    Admin:    admin@arbeitly.de    / admin2024"
+echo "    Employee: employee@arbeitly.de / employee2024"
 echo ""

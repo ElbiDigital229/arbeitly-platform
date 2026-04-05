@@ -1,35 +1,21 @@
 # Arbeitly Platform
 
-A modern job search platform for candidates. Track applications, manage CVs, and get AI-powered parsing.
+A candidate management platform where employees enhance CVs/cover letters with AI, discover jobs, auto-generate tailored applications, and track performance — managed by admins.
 
 ## Related Repositories
 
 | Repo | Description | Status |
 |------|-------------|--------|
 | [arbeitly-platform](https://github.com/ElbiDigital229/arbeitly-platform) | **Current** — Express + Vue 3 rewrite | Active |
-| [arbeitly-be](https://github.com/ElbiDigital229/arbeitly-be) | Legacy Laravel backend (fork of ubaidrehman97) | Reference |
-| [new-arbeitly-fe](https://github.com/ElbiDigital229/new-arbeitly-fe) | Legacy Next.js/React frontend (fork of ubaidrehman97) | Reference |
-| [cv-builder](https://github.com/ElbiDigital229/cv-builder) | Original Laravel CV builder | Reference |
-
----
-
-## Full Project Context
-
-See **[CONTEXT.md](CONTEXT.md)** for the complete project history — from the original `cv-builder` prototype through the legacy Laravel + React platform to this Express + Vue 3 rewrite. It includes:
-
-- What was ported from legacy and what's still missing
-- Legacy architecture reference (directory structures, DB schema)
-- Feature mapping table (legacy → rewrite with status)
-- Key differences between stacks
-- Instructions for running legacy code alongside the rewrite
+| [arbeitly-be](https://github.com/ElbiDigital229/arbeitly-be) | Legacy Laravel backend | Reference |
+| [new-arbeitly-fe](https://github.com/ElbiDigital229/new-arbeitly-fe) | Legacy Next.js/React frontend | Reference |
 
 ---
 
 ## Prerequisites
 
-- [Bun](https://bun.sh) >= 1.0 (runtime for backend + package manager)
-- [Docker](https://docs.docker.com/get-docker/) & Docker Compose (for Postgres, Valkey, MinIO)
-- [Node.js](https://nodejs.org) >= 18 (optional, for frontend if not using Bun)
+- [Bun](https://bun.sh) >= 1.0 (runtime + package manager)
+- [Docker](https://docs.docker.com/get-docker/) & Docker Compose (for Postgres, MinIO)
 
 ### Install Bun (macOS/Linux)
 ```bash
@@ -45,25 +31,23 @@ curl -fsSL https://bun.sh/install | bash
 git clone https://github.com/ElbiDigital229/arbeitly-platform.git
 cd arbeitly-platform
 
-# Run the setup script (installs deps, starts Docker, runs migrations)
+# Run the setup script (installs deps, starts Docker, pushes schema, seeds)
 chmod +x setup-dev.sh
 ./setup-dev.sh
 ```
 
 ### Manual Setup
 
-If you prefer to set up manually:
-
 ```bash
-# 1. Start infrastructure
+# 1. Start infrastructure (Postgres + MinIO)
 docker compose -f backend/dev-docker-compose.yml up -d
 
 # 2. Backend setup
 cd backend
 bun install
-cp .env.example .env        # Edit .env — set ANTHROPIC_API_KEY for AI CV parsing
-bun run db:push              # Push schema to database (use db:push, NOT db:migrate)
-bun run db:seed              # Optional: seed demo data
+cp .env.example .env        # Edit .env — set ANTHROPIC_API_KEY for AI features
+bun run db:push              # Push schema to database
+bun run db:seed              # Creates admin + employee accounts
 cd ..
 
 # 3. Frontend setup
@@ -76,68 +60,24 @@ cd ..
 
 ```bash
 # Terminal 1 — Backend (port 4000)
-cd backend
-ANTHROPIC_API_KEY=your-key-here bun --watch src/server.ts
+cd backend && bun run dev
 
 # Terminal 2 — Frontend (port 5173)
-cd frontend
-bun run dev
+cd frontend && bun run dev
 ```
 
 Open http://localhost:5173 in your browser.
 
-### Test Account
+### Seed Accounts
 
-After seeding: `demo@arbeitly.com` / `password123`
+After running `bun run db:seed`:
 
-Or create a new account via the Register page.
+| Role | Email | Password | Portal URL |
+|------|-------|----------|------------|
+| Admin | `admin@arbeitly.de` | `admin2024` | http://localhost:5173/superadmin/login |
+| Employee | `employee@arbeitly.de` | `employee2024` | http://localhost:5173/employee/login |
 
-If you need to manually set a password:
-```sql
--- Connect to postgres and run:
-UPDATE "User" SET password = '$2a$10$YourBcryptHashHere' WHERE email = 'your@email.com';
-```
-
----
-
-## Project Structure
-
-```
-arbeitly-platform/
-├── backend/                    # Express + TypeScript API (Bun runtime)
-│   ├── prisma/                 # Prisma schema + migrations
-│   │   └── schema.prisma       # Database models
-│   ├── scripts/                # DB seed script
-│   ├── src/
-│   │   ├── config/             # env, prisma, minio, valkey singletons
-│   │   ├── controllers/        # Request handlers (delegate to services)
-│   │   ├── dtos/               # Zod validation schemas
-│   │   ├── errors/             # AppError + HttpError factory
-│   │   ├── middleware/         # auth, roles, validate, errorHandler
-│   │   ├── repositories/      # Thin Prisma DB layer
-│   │   ├── routes/            # Express router registration
-│   │   ├── services/          # Business logic (auth, cv, ai, application, etc.)
-│   │   └── utils/             # jwt, hash, response helpers
-│   ├── server.ts              # App entry point
-│   ├── Caddyfile              # Reverse proxy config
-│   ├── Dockerfile             # Production Docker build
-│   ├── dev-docker-compose.yml # Dev infrastructure (Postgres, Valkey, MinIO)
-│   └── docker-compose.yml     # Production compose
-│
-├── frontend/                   # Vue 3 + Vite + Vuetify + Tailwind
-│   └── src/
-│       ├── components/         # Layout, sidebar, step indicator, template preview
-│       │   └── landing/        # Landing page sections
-│       ├── router/             # Vue Router config + guards
-│       ├── stores/             # Pinia auth store
-│       ├── views/              # Public views (Home, Login, Register, Pricing)
-│       │   └── candidate/      # Protected portal views
-│       ├── style.css           # Global CSS + design tokens
-│       └── main.ts            # App bootstrap
-│
-├── setup-dev.sh               # One-command dev setup
-└── readme.md                  # This file
-```
+Candidates register themselves at http://localhost:5173/register.
 
 ---
 
@@ -146,77 +86,190 @@ arbeitly-platform/
 | Layer | Technology |
 |-------|-----------|
 | Runtime | Bun |
-| Backend | Express 4, TypeScript (strict) |
+| Backend | Express 4, TypeScript |
 | Database | PostgreSQL 16, Prisma 6 |
 | Validation | Zod |
-| Auth | JWT + bcryptjs + Auth0 (dual-mode) |
+| Auth | JWT (jsonwebtoken) + bcryptjs |
 | File Storage | MinIO (S3-compatible) |
-| Cache | Valkey (Redis-compatible) via ioredis + cache middleware |
-| Rate Limiting | express-rate-limit + Valkey store |
-| AI | Anthropic Claude API (CV parsing — 30+ fields) |
-| PDF | PDFKit (generation), pdfjs-dist (parsing), Sharp (images) |
+| AI | Anthropic Claude (`claude-haiku-4-5-20251001`) |
+| PDF | PDFKit (generation), pdfjs-dist (parsing), Sharp (images), Puppeteer (HTML→PDF) |
 | Frontend | Vue 3, Vite 6, Vuetify 3, Tailwind CSS 3, Pinia |
-| Payments | Stripe (checkout, portal, webhooks) |
-| Messaging | NATS JetStream (event bus) |
-| Reverse Proxy | Caddy |
-| Containers | Docker, Docker Compose |
+| Icons | MDI (`@mdi/font`) |
+| HTTP Client | Axios (with interceptors) |
+
+---
+
+## Architecture
+
+### Three Auth Flows
+
+| Role | Login Route | API Prefix | Token Key | Store |
+|------|------------|------------|-----------|-------|
+| Candidate | `/login` | `/api/auth/*` | `arbeitly_token` | `stores/auth.ts` |
+| Employee | `/employee/login` | `/api/employee/*` | `arbeitly_employee_token` | `stores/employee.ts` |
+| Admin | `/superadmin/login` | `/api/admin/*` | `arbeitly_admin_token` | `stores/admin.ts` |
+
+### API Pattern
+
+- Frontend axios `baseURL: "/api"` → Vite proxy forwards to backend at `localhost:4000`
+- All responses: `{ success: true, data: {...} }` or `{ success: false, error: "..." }`
+
+---
+
+## Project Structure
+
+```
+arbeitly-platform/
+├── backend/                        # Express + TypeScript API (Bun runtime)
+│   ├── prisma/
+│   │   ├── schema.prisma           # All database models
+│   │   └── seed.ts                 # Creates admin + employee
+│   ├── src/
+│   │   ├── controllers/            # Request handlers
+│   │   ├── dtos/                   # Zod validation schemas
+│   │   ├── errors/                 # HttpError class
+│   │   ├── middleware/             # auth, roles, validate, errorHandler, rateLimiter
+│   │   ├── repositories/          # Prisma DB layer
+│   │   ├── routes/                # Express routers
+│   │   ├── services/              # Business logic (auth, cv, ai, admin, employee, etc.)
+│   │   ├── utils/                 # jwt, hash, response helpers
+│   │   └── server.ts              # Entry point
+│   ├── dev-docker-compose.yml     # Dev infrastructure
+│   └── .env.example
+│
+├── frontend/                       # Vue 3 + Vite + Vuetify + Tailwind
+│   └── src/
+│       ├── components/
+│       │   ├── landing/            # Landing page sections
+│       │   ├── EmployeeLayout.vue  # Employee portal layout + nav
+│       │   └── SuperAdminLayout.vue # Admin portal layout + nav
+│       ├── router/                 # Vue Router + route guards
+│       ├── services/
+│       │   └── api.ts              # Axios instance + interceptor
+│       ├── stores/
+│       │   ├── auth.ts             # Candidate auth (Pinia)
+│       │   ├── employee.ts         # Employee auth
+│       │   └── admin.ts            # Admin auth
+│       └── views/
+│           ├── candidate/          # Dashboard, Onboarding, CV Builder, Applications
+│           ├── employee/           # Dashboard, CandidateDetail, JobDiscovery
+│           └── superadmin/         # Overview, Candidates, Employees, Plans, AIConfig, Performance
+│
+├── docs/                           # Business logic documentation (11 files)
+├── setup-dev.sh                    # One-command dev setup
+└── readme.md
+```
 
 ---
 
 ## API Endpoints
 
-### Auth
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| POST | /api/auth/register | No | Register candidate account |
-| POST | /api/auth/login | No | Login, receive JWT |
-| GET | /api/auth/me | Yes | Get current user + profile + usage |
-| PUT | /api/auth/change-password | Yes | Change password |
+### Auth (`/api/auth`)
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | /register | Register candidate |
+| POST | /login | Candidate login → JWT |
+| GET | /me | Current user + profile |
+| PUT | /change-password | Change password |
 
-### Profile
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| GET | /api/profile | Yes | Get candidate profile |
-| PUT | /api/profile | Yes | Update profile |
+### Onboarding (`/api/onboarding`)
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | / | Complete candidate onboarding |
 
-### Onboarding
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| POST | /api/onboarding | Yes | Complete onboarding |
+### CVs (`/api/cvs`)
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | / | Upload CV (multipart) — AI parses |
+| POST | /create | Create CV from editor |
+| GET | / | List all CVs |
+| GET | /:id | Get CV by ID |
+| PUT | /:id | Update CV |
+| DELETE | /:id | Delete CV |
+| GET | /:id/export | Export CV as PDF |
 
-### CVs
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| POST | /api/cvs | Yes | Upload CV (multipart) — AI parses + extracts photo |
-| POST | /api/cvs/create | Yes | Create CV from editor data |
-| GET | /api/cvs | Yes | List all CVs |
-| GET | /api/cvs/:id | Yes | Get CV by ID |
-| PUT | /api/cvs/:id | Yes | Update CV |
-| DELETE | /api/cvs/:id | Yes | Delete CV |
-| GET | /api/cvs/:id/export | Yes | Export CV as PDF |
+### Applications (`/api/applications`)
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | / | Create application |
+| POST | /bulk | Bulk create (CSV, max 100) |
+| GET | / | List applications |
+| GET | /:id | Get application |
+| PUT | /:id | Update application |
+| DELETE | /:id | Delete application |
 
-### Applications
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| POST | /api/applications | Yes | Create application |
-| POST | /api/applications/bulk | Yes | Bulk create (CSV import, max 100) |
-| GET | /api/applications | Yes | List all applications |
-| GET | /api/applications/:id | Yes | Get application by ID |
-| PUT | /api/applications/:id | Yes | Update application |
-| DELETE | /api/applications/:id | Yes | Delete application |
+### Plans (`/api/plans`)
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | / | List active plans |
 
-### Payments
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| POST | /api/payments/create-checkout | Yes | Create Stripe checkout session |
-| POST | /api/payments/webhook | No | Stripe webhook handler |
-| POST | /api/payments/portal | Yes | Create Stripe billing portal session |
-| GET | /api/payments/subscription | Yes | Get current subscription |
+### Payments (`/api/payments`)
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | /create-checkout | Create checkout session |
+| GET | /verify/:sessionId | Verify payment |
+
+### Admin (`/api/admin`)
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | /login | Admin login |
+| GET | /me | Current admin |
+| GET | /candidates | List all candidates |
+| PATCH | /candidates/:id | Update candidate (assign employee, etc.) |
+| GET | /employees | List employees |
+| POST | /employees | Create employee |
+| DELETE | /employees/:id | Delete employee |
+| GET | /plans | List all plans |
+| POST | /plans | Create plan |
+| PATCH | /plans/:id | Update plan |
+| DELETE | /plans/:id | Delete plan |
+| GET | /prompts | List AI prompts |
+| POST | /prompts | Create prompt |
+| PATCH | /prompts/:id | Update prompt |
+| DELETE | /prompts/:id | Delete prompt |
+| GET | /overview | Dashboard stats |
+| GET | /performance | Employee performance metrics |
+| GET | /performance/:employeeId | Single employee detail |
+
+### Employee (`/api/employee`)
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | /login | Employee login |
+| GET | /me | Current employee |
+| GET | /candidates | Assigned candidates |
+| GET | /candidates/:id | Candidate detail |
+| GET | /candidates/:id/cvs | Candidate's CVs |
+| POST | /candidates/:id/cvs/:cvId/enhance | AI enhance CV |
+| POST | /candidates/:id/cvs/:cvId/version | Create CV version |
+| POST | /candidates/:id/cvs/:cvId/variant | Create CV variant |
+| GET | /candidates/:id/cvs/:cvId/tree | CV version tree |
+| GET | /candidates/:id/cover-letters | Candidate's cover letters |
+| POST | /candidates/:id/cover-letters | Create cover letter |
+| PUT | /candidates/:id/cover-letters/:clId | Update cover letter |
+| POST | /candidates/:id/cover-letters/:clId/enhance | AI enhance CL |
+| POST | /candidates/:id/cover-letters/:clId/version | Create CL version |
+| POST | /candidates/:id/cover-letters/:clId/variant | Create CL variant |
+| GET | /candidates/:id/cover-letters/:clId/tree | CL version tree |
+| POST | /candidates/:id/cover-letters/generate | Generate CL for job |
+| GET | /candidates/:id/applications | Candidate's applications |
+| POST | /candidates/:id/applications | Create application |
+| PUT | /candidates/:candidateId/applications/:appId | Update application |
+| DELETE | /candidates/:candidateId/applications/:appId | Delete application |
+| GET | /performance | Own performance stats |
+
+### Job Discovery (`/api/jobs`)
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | / | List all jobs |
+| POST | / | Add job |
+| DELETE | /:id | Delete job |
+| POST | /:id/score/:candidateId | AI relevance score (0-100) |
+| POST | /:id/queue/:candidateId | Add to queue → auto-generates tailored CV |
 
 ### Health
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| GET | /api/health | No | Health check |
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | /api/health | Health check |
 
 ---
 
@@ -226,37 +279,19 @@ arbeitly-platform/
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| DATABASE_URL | Yes | — | PostgreSQL connection string |
+| DATABASE_URL | Yes | — | PostgreSQL connection (port 5433 with dev docker-compose) |
 | JWT_SECRET | Yes | — | Secret for signing JWTs |
 | JWT_EXPIRES_IN | No | 7d | Token expiry |
-| ANTHROPIC_API_KEY | No | — | Claude API key for CV parsing |
+| ANTHROPIC_API_KEY | Yes* | — | Claude API key for AI features (CV parsing, enhancement, matching) |
 | MINIO_ENDPOINT | No | localhost | MinIO host |
 | MINIO_PORT | No | 9000 | MinIO port |
 | MINIO_USE_SSL | No | false | MinIO HTTPS |
 | MINIO_ACCESS_KEY | No | minioadmin | MinIO access key |
 | MINIO_SECRET_KEY | No | minioadmin | MinIO secret key |
-| MINIO_BUCKET | No | arbeitly | MinIO bucket |
-| VALKEY_URL | No | redis://localhost:6379 | Valkey/Redis URL |
-| NATS_URL | No | nats://localhost:4222 | NATS JetStream URL |
+| MINIO_BUCKET | No | arbeitly | MinIO bucket name |
 | PORT | No | 4000 | API server port |
-| STRIPE_SECRET_KEY | No | sk_test_placeholder | Stripe secret key |
-| STRIPE_WEBHOOK_SECRET | No | whsec_placeholder | Stripe webhook signing secret |
-| STRIPE_PRICE_STARTER | No | price_placeholder | Stripe price ID for Starter plan |
-| STRIPE_PRICE_PROFESSIONAL | No | price_placeholder | Stripe price ID for Professional plan |
-| STRIPE_PRICE_ENTERPRISE | No | price_placeholder | Stripe price ID for Enterprise plan |
-| AUTH0_DOMAIN | No | your-tenant.auth0.com | Auth0 tenant domain |
-| AUTH0_AUDIENCE | No | https://api.arbeitly.com | Auth0 API audience |
-| AUTH0_CLIENT_ID | No | placeholder | Auth0 client ID |
-| AUTH0_CLIENT_SECRET | No | placeholder | Auth0 client secret |
 
-### Frontend (`frontend/.env.local`)
-
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| VITE_API_URL | No | http://localhost:4000 | API target (used by Vite proxy) |
-| VITE_AUTH0_DOMAIN | No | — | Auth0 tenant domain |
-| VITE_AUTH0_CLIENT_ID | No | — | Auth0 client ID |
-| VITE_AUTH0_AUDIENCE | No | — | Auth0 API audience |
+*Required for CV parsing, enhancement, cover letter generation, and job matching. The app starts without it but AI features will fail.
 
 ---
 
@@ -266,30 +301,24 @@ Started via `docker compose -f backend/dev-docker-compose.yml up -d`:
 
 | Service | Port | Credentials |
 |---------|------|-------------|
-| PostgreSQL 16 | 5432 | arbeitly / arbeitly / arbeitly |
-| Valkey (Redis) | 6379 | — |
+| PostgreSQL 16 | 5433 | arbeitly / arbeitly / arbeitly |
 | MinIO (S3) | 9000 (API), 9001 (Console) | minioadmin / minioadmin |
-| NATS JetStream | 4222 (client), 8222 (monitoring) | — |
-| Caddy | 80 (HTTP), 443 (HTTPS) | — |
+| Valkey (Redis) | 6379 | — |
 
 ---
 
-## Key Features (Free Tier)
+## Key Business Flows
 
-- AI CV Parsing — 30+ fields extracted with zero data loss (Claude)
-- Profile Photo Extraction — automatically pulled from uploaded PDF CVs
-- CV Builder — 3 templates (Modern/Classic/Minimal), EN/DE, drag-and-drop sections, live preview
-- Signature Upload — handwritten signature in CV
-- Application Tracker — Kanban board with 7 status columns
-- CSV Bulk Import — import up to 100 applications at once
-- 6 Extra Application Fields — salary, contact person, next action, job description, CV used, references
-- Usage Limits — configurable CV creation quota per user
-- Full Tailwind Design System — dark navy theme with cyan accents
-- Valkey Cache + Rate Limiting — cached GET responses with X-Cache header, 10 req/15min on auth
-- NATS JetStream Event Bus — async events for user registration, CV parsing, application status
-- Stripe Payments — checkout, billing portal, webhook handler (plug in API keys to activate)
-- Auth0 SSO — dual-mode auth (local JWT + Auth0), Google/LinkedIn social login buttons
-- Caddy Reverse Proxy — automatic HTTPS, routes /api to backend and /* to frontend
+### Candidate Journey
+1. Register → Complete onboarding (profile + upload CV + write cover letter) → Browse plans → Purchase plan → Wait for employee assignment
+
+### Employee Workflow
+1. View assigned candidates → Enhance CV/CL with AI → Discover jobs → Score relevance → Add to queue (auto-generates tailored CV + application) → Apply on behalf → Track via kanban
+
+### Admin Operations
+1. Create plans → Create employees → Assign paid+onboarded candidates to employees → Configure AI prompts → Monitor employee performance
+
+See `docs/` for detailed breakdowns of each flow.
 
 ---
 
@@ -298,26 +327,37 @@ Started via `docker compose -f backend/dev-docker-compose.yml up -d`:
 ```bash
 cd backend
 
-# Push schema changes (use this instead of migrate dev)
-bunx prisma db push
-
-# Open Prisma Studio (visual DB browser)
-bunx prisma studio
-
-# Generate client after schema changes
-bunx prisma generate
-
-# Seed demo data
-bun run db:seed
+bunx prisma db push       # Push schema changes (use this, NOT migrate dev)
+bunx prisma studio         # Visual DB browser
+bunx prisma generate       # Regenerate client after schema changes
+bun run db:seed            # Seed admin + employee accounts
 ```
 
-**Note:** `prisma migrate dev` may fail due to shadow database permissions. Use `prisma db push` instead.
+---
+
+## Documentation
+
+The `docs/` folder contains detailed business logic documentation:
+
+| File | Topic |
+|------|-------|
+| `00-overview.md` | Platform overview and user roles |
+| `01-free-candidate.md` | Free tier features and limits |
+| `02-paid-candidate.md` | Paid tier and payment flow |
+| `03-employee-workflow.md` | Employee portal and candidate management |
+| `04-admin-operations.md` | Admin portal and configuration |
+| `05-reporting.md` | Performance tracking and metrics |
+| `06-job-discovery.md` | Job pool, scoring, and queue system |
+| `07-ai-matching.md` | AI relevance scoring |
+| `08-cv-generation.md` | CV/CL enhancement and generation |
+| `09-cv-parsing.md` | AI CV parsing pipeline |
+| `10-misc.md` | Auth, API structure, middleware, database |
 
 ---
 
 ## Known Quirks
 
 1. **Bun PATH**: Background shell processes may not find bun. Fix: `export PATH="$HOME/.bun/bin:$PATH"`
-2. **Port 3000 occupied**: Backend defaults to 4000 to avoid conflicts. Frontend Vite proxy points to `http://localhost:4000`
-3. **Prisma shadow DB**: `migrate dev` fails — use `db push` instead
+2. **Prisma shadow DB**: `migrate dev` fails — always use `db push` instead
+3. **Docker Postgres port**: Mapped to 5433 (not default 5432) to avoid conflicts with local Postgres
 4. **dotenv**: Bun doesn't reliably load .env files. The server imports `dotenv/config` explicitly.
