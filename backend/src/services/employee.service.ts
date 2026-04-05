@@ -2,6 +2,7 @@ import { prisma } from '../config/prisma.js';
 import { HttpError } from '../errors/HttpError.js';
 import { comparePassword, hashPassword } from '../utils/hash.js';
 import { signToken } from '../utils/jwt.js';
+import { faqRepository } from '../repositories/faq.repository.js';
 
 export const employeeService = {
   async signin(email: string, password: string) {
@@ -155,6 +156,9 @@ export const employeeService = {
       linkedinUrl: profile.linkedinUrl,
       portfolioUrl: profile.portfolioUrl,
       baseCoverLetter: profile.baseCoverLetter,
+      dummyEmail: profile.dummyEmail,
+      dummyPassword: profile.dummyPassword,
+      preferredLanguage: profile.preferredLanguage,
       onboardingCompleted: profile.onboardingCompleted,
     };
   },
@@ -189,11 +193,13 @@ export const employeeService = {
     const jobsAdded = await prisma.jobDiscovery.count({ where: { addedById: employeeId } });
     const applied = apps.filter(a => a.status !== 'TO_APPLY').length;
     const interviews = apps.filter(a => a.status === 'INTERVIEW').length;
+    const offers = apps.filter(a => a.status === 'OFFER').length;
     const accepted = apps.filter(a => a.status === 'ACCEPTED').length;
 
     return {
       applicationsFiled: applied,
       interviews,
+      offers,
       accepted,
       interviewRatio: applied > 0 ? Math.round((interviews / applied) * 100) : 0,
       jobsAdded,
@@ -211,5 +217,36 @@ export const employeeService = {
     if (!valid) throw HttpError.unauthorized('Current password is incorrect');
     const hashed = await hashPassword(newPassword);
     return prisma.user.update({ where: { id: employeeId }, data: { password: hashed } });
+  },
+
+  // FAQ
+  async getCandidateFaq(employeeId: string, candidateId: string) {
+    await this.verifyAssignment(employeeId, candidateId);
+    return faqRepository.findByCandidateId(candidateId);
+  },
+
+  async createFaqItem(employeeId: string, candidateId: string, data: { question: string; answer: string; category?: string }) {
+    await this.verifyAssignment(employeeId, candidateId);
+    return faqRepository.create({
+      question: data.question,
+      answer: data.answer,
+      category: data.category,
+      candidate: { connect: { id: candidateId } },
+      employee: { connect: { id: employeeId } },
+    });
+  },
+
+  async updateFaqItem(employeeId: string, candidateId: string, faqId: string, data: any) {
+    await this.verifyAssignment(employeeId, candidateId);
+    const item = await faqRepository.findById(faqId);
+    if (!item || item.candidateId !== candidateId) throw HttpError.notFound('FAQ item not found');
+    return faqRepository.update(faqId, data);
+  },
+
+  async deleteFaqItem(employeeId: string, candidateId: string, faqId: string) {
+    await this.verifyAssignment(employeeId, candidateId);
+    const item = await faqRepository.findById(faqId);
+    if (!item || item.candidateId !== candidateId) throw HttpError.notFound('FAQ item not found');
+    return faqRepository.delete(faqId);
   },
 };

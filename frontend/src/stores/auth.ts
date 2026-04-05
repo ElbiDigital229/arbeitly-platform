@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import api from '../services/api';
+import { useLocale } from '../composables/useLocale';
 
 interface CandidateProfile {
   id: string;
@@ -76,6 +77,12 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       const { data } = await api.get('/auth/me');
       user.value = data.data;
+      // Sync locale from profile preference
+      const lang = data.data?.profile?.preferredLanguage;
+      if (lang === 'de' || lang === 'en') {
+        const { setLocale } = useLocale();
+        setLocale(lang);
+      }
     } catch {
       clearAuth();
     }

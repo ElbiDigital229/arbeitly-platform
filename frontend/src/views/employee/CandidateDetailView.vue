@@ -45,6 +45,29 @@
           <div><p class="text-xs text-muted-foreground">Location</p><p class="font-medium text-foreground">{{ candidate.profile?.location || '—' }}</p></div>
           <div v-if="candidate.profile?.linkedinUrl"><p class="text-xs text-muted-foreground">LinkedIn</p><p class="font-medium text-primary truncate">{{ candidate.profile.linkedinUrl }}</p></div>
           <div><p class="text-xs text-muted-foreground">Onboarding</p><p class="font-medium" :class="candidate.profile?.onboardingCompleted ? 'text-green-400' : 'text-yellow-400'">{{ candidate.profile?.onboardingCompleted ? 'Completed' : 'Pending' }}</p></div>
+          <div><p class="text-xs text-muted-foreground">Language</p><p class="font-medium text-foreground">{{ candidate.profile?.preferredLanguage === 'en' ? 'English' : 'Deutsch' }}</p></div>
+        </div>
+      </div>
+
+      <!-- Dummy Credentials -->
+      <div v-if="candidate.profile?.dummyEmail || candidate.profile?.dummyPassword" class="rounded-xl border border-border bg-card p-6 space-y-4">
+        <h3 class="font-display text-base font-semibold text-foreground flex items-center gap-2">
+          <span class="mdi mdi-key-variant text-primary" /> Application Credentials
+        </h3>
+        <div class="grid grid-cols-2 gap-4 text-sm">
+          <div>
+            <p class="text-xs text-muted-foreground">Dummy Email</p>
+            <p class="font-medium text-foreground font-mono">{{ candidate.profile.dummyEmail || '—' }}</p>
+          </div>
+          <div>
+            <p class="text-xs text-muted-foreground">Dummy Password</p>
+            <div class="flex items-center gap-2">
+              <p class="font-medium text-foreground font-mono">{{ showPassword ? candidate.profile.dummyPassword : '••••••••' }}</p>
+              <button @click="showPassword = !showPassword" class="text-muted-foreground hover:text-foreground">
+                <span class="mdi text-sm" :class="showPassword ? 'mdi-eye-off' : 'mdi-eye'" />
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </template>
@@ -70,6 +93,17 @@
         <div v-if="onboarding.baseCoverLetter">
           <p class="text-xs text-muted-foreground mb-1">Base Cover Letter</p>
           <pre class="text-xs text-foreground whitespace-pre-wrap font-mono p-3 rounded-lg bg-secondary/30">{{ onboarding.baseCoverLetter }}</pre>
+        </div>
+        <div v-if="onboarding.dummyEmail || onboarding.dummyPassword" class="border-t border-border pt-4">
+          <h4 class="text-sm font-semibold text-foreground mb-2">Application Credentials</h4>
+          <div class="grid grid-cols-2 gap-4 text-sm">
+            <div><p class="text-xs text-muted-foreground">Dummy Email</p><p class="font-medium text-foreground font-mono">{{ onboarding.dummyEmail || '—' }}</p></div>
+            <div><p class="text-xs text-muted-foreground">Dummy Password</p><p class="font-medium text-foreground font-mono">{{ onboarding.dummyPassword || '—' }}</p></div>
+          </div>
+        </div>
+        <div v-if="onboarding.preferredLanguage" class="border-t border-border pt-4">
+          <p class="text-xs text-muted-foreground">Preferred Language</p>
+          <p class="text-sm font-medium text-foreground">{{ onboarding.preferredLanguage === 'en' ? 'English' : 'Deutsch' }}</p>
         </div>
       </div>
     </template>
@@ -190,6 +224,61 @@
       </template>
     </template>
 
+    <!-- ═══════════ FAQ Tab ═══════════ -->
+    <template v-if="activeTab === 'faq'">
+      <div class="flex items-center justify-between">
+        <p class="text-sm text-muted-foreground">{{ faqItems.length }} FAQ item{{ faqItems.length !== 1 ? 's' : '' }}</p>
+        <button @click="showAddFaq = true" class="flex items-center gap-1.5 h-9 px-4 rounded-full text-sm font-medium bg-primary text-primary-foreground hover:opacity-90">
+          <span class="mdi mdi-plus" /> Add FAQ
+        </button>
+      </div>
+
+      <div v-if="faqItems.length === 0" class="rounded-xl border border-border bg-card p-12 text-center">
+        <span class="mdi mdi-help-circle-outline text-5xl text-muted-foreground/20" />
+        <p class="text-sm text-foreground mt-3">No FAQ items yet</p>
+        <p class="text-xs text-muted-foreground mt-1">Create FAQ items for this candidate's interview prep.</p>
+      </div>
+
+      <div v-else class="space-y-2">
+        <div v-for="item in faqItems" :key="item.id" class="rounded-xl border border-border bg-card p-4 space-y-2">
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex-1 space-y-1">
+              <div class="flex items-center gap-2">
+                <span v-if="item.category" class="rounded-full px-2 py-0.5 text-[10px] font-medium bg-primary/10 text-primary border border-primary/20">{{ item.category }}</span>
+                <span class="rounded-full px-2 py-0.5 text-[10px] font-medium" :class="item.isApproved ? 'bg-green-500/10 text-green-400' : 'bg-yellow-500/10 text-yellow-400'">
+                  {{ item.isApproved ? 'Approved' : 'Pending' }}
+                </span>
+              </div>
+              <p class="text-sm font-medium text-foreground">{{ item.question }}</p>
+              <p class="text-xs text-muted-foreground whitespace-pre-wrap">{{ item.answer }}</p>
+            </div>
+            <button @click="deleteFaqItem(item.id)" class="h-7 w-7 rounded flex items-center justify-center text-muted-foreground hover:text-destructive shrink-0">
+              <span class="mdi mdi-trash-can-outline text-sm" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Add FAQ dialog -->
+      <div v-if="showAddFaq" class="modal-overlay">
+        <div class="rounded-2xl border border-border bg-card p-6 w-full max-w-md space-y-4">
+          <h3 class="font-display text-lg font-bold text-foreground">Add FAQ Item</h3>
+          <div class="space-y-3">
+            <div><label class="text-sm font-medium text-foreground block mb-1">Category</label><input v-model="newFaq.category" class="input-field" placeholder="e.g. Interview, Technical, General" /></div>
+            <div><label class="text-sm font-medium text-foreground block mb-1">Question *</label><input v-model="newFaq.question" class="input-field" placeholder="What is your greatest strength?" /></div>
+            <div><label class="text-sm font-medium text-foreground block mb-1">Answer *</label><textarea v-model="newFaq.answer" rows="4" class="input-field resize-none" placeholder="Prepared answer..." /></div>
+          </div>
+          <div class="flex gap-2 justify-end">
+            <button @click="showAddFaq = false" class="px-3 py-1.5 rounded-lg text-xs font-medium bg-secondary text-foreground">Cancel</button>
+            <button @click="submitFaq" :disabled="!newFaq.question || !newFaq.answer || addingFaq"
+              class="px-4 py-1.5 rounded-lg text-xs font-medium bg-primary text-primary-foreground disabled:opacity-50">
+              {{ addingFaq ? 'Adding...' : 'Add FAQ' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </template>
+
     <!-- ═══════════ Applications Tab ═══════════ -->
     <template v-if="activeTab === 'applications'">
       <!-- View toggle + Add -->
@@ -302,6 +391,7 @@ const showAddApp = ref(false);
 const addingApp = ref(false);
 const appView = ref<'list' | 'kanban'>('list');
 const dragApp = ref<any>(null);
+const showPassword = ref(false);
 
 // Onboarding
 const onboarding = ref<any>(null);
@@ -321,12 +411,19 @@ const enhancingCl = ref(false);
 const clEnhanceResult = ref<string | null>(null);
 const clCustomPrompt = ref('');
 
-const statuses = ['TO_APPLY', 'APPLIED', 'INTERVIEW', 'ACCEPTED', 'REJECTED'];
+// FAQ state
+const faqItems = ref<any[]>([]);
+const showAddFaq = ref(false);
+const addingFaq = ref(false);
+const newFaq = ref({ question: '', answer: '', category: '' });
+
+const statuses = ['TO_APPLY', 'APPLIED', 'IN_PROGRESS', 'INTERVIEW', 'OFFER', 'ACCEPTED', 'REJECTED', 'FAILED'];
 const tabs = [
   { id: 'profile', label: 'Profile' },
   { id: 'onboarding', label: 'Onboarding' },
   { id: 'cv', label: 'CV' },
   { id: 'cl', label: 'Cover Letter' },
+  { id: 'faq', label: 'FAQ' },
   { id: 'applications', label: 'Applications' },
 ];
 
@@ -358,9 +455,12 @@ function statusClass(s: string) {
   const map: Record<string, string> = {
     TO_APPLY: 'bg-muted text-muted-foreground',
     APPLIED: 'bg-blue-500/10 text-blue-400',
+    IN_PROGRESS: 'bg-cyan-500/10 text-cyan-400',
     INTERVIEW: 'bg-yellow-500/10 text-yellow-400',
+    OFFER: 'bg-purple-500/10 text-purple-400',
     ACCEPTED: 'bg-green-500/10 text-green-400',
     REJECTED: 'bg-destructive/10 text-destructive',
+    FAILED: 'bg-orange-500/10 text-orange-400',
   };
   return map[s] || '';
 }
@@ -369,9 +469,12 @@ function statusDotClass(s: string) {
   const map: Record<string, string> = {
     TO_APPLY: 'bg-muted-foreground',
     APPLIED: 'bg-blue-400',
+    IN_PROGRESS: 'bg-cyan-400',
     INTERVIEW: 'bg-yellow-400',
+    OFFER: 'bg-purple-400',
     ACCEPTED: 'bg-green-400',
     REJECTED: 'bg-destructive',
+    FAILED: 'bg-orange-400',
   };
   return map[s] || 'bg-muted-foreground';
 }
@@ -411,6 +514,12 @@ watch(activeTab, async (tab) => {
         cvVersions.value = tree.data || [];
       }
     } catch { /* no cvs */ }
+  }
+  if (tab === 'faq' && faqItems.value.length === 0) {
+    try {
+      const { data } = await api.get(`/employee/candidates/${candidateId}/faq`, { headers: headers.value });
+      faqItems.value = data.data || [];
+    } catch { /* no faq */ }
   }
   if (tab === 'cl' && coverLetters.value.length === 0) {
     try {
@@ -485,6 +594,25 @@ async function saveClVersion() {
     const { data } = await api.get(`/employee/candidates/${candidateId}/cover-letters`, { headers: headers.value });
     coverLetters.value = data.data || [];
   } catch (e: any) { alert(e?.response?.data?.error || 'Failed to save version.'); }
+}
+
+// FAQ actions
+async function submitFaq() {
+  addingFaq.value = true;
+  try {
+    const { data } = await api.post(`/employee/candidates/${candidateId}/faq`, newFaq.value, { headers: headers.value });
+    faqItems.value.unshift(data.data);
+    showAddFaq.value = false;
+    newFaq.value = { question: '', answer: '', category: '' };
+  } catch (err) { console.error('Failed to add FAQ:', err); }
+  finally { addingFaq.value = false; }
+}
+
+async function deleteFaqItem(faqId: string) {
+  try {
+    await api.delete(`/employee/candidates/${candidateId}/faq/${faqId}`, { headers: headers.value });
+    faqItems.value = faqItems.value.filter(f => f.id !== faqId);
+  } catch (err) { console.error('Failed to delete FAQ:', err); }
 }
 
 // Application actions

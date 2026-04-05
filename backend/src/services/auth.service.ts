@@ -58,6 +58,8 @@ export const authService = {
       usage: profile ? {
         cvCreationLimit: profile.cvCreationLimit,
         cvCreationsUsed: profile.cvCreationsUsed,
+        applicationLimitUsed: profile.applicationLimitUsed,
+        applicationLimit: profile?.plan?.applicationLimit ?? null,
       } : null,
       plan: profile?.plan ?? null,
     };

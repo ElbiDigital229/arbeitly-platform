@@ -27,6 +27,29 @@
           <div><label class="text-sm font-medium text-foreground block mb-1">Location</label><input v-model="form.location" class="input-field" placeholder="Berlin, Germany" /></div>
         </div>
         <div><label class="text-sm font-medium text-foreground block mb-1">Short Bio</label><textarea v-model="form.bio" rows="3" class="input-field resize-none" placeholder="A brief description of your background..." /></div>
+
+        <div class="border-t border-border pt-4 mt-2">
+          <h3 class="text-sm font-semibold text-foreground mb-1">Application Credentials</h3>
+          <p class="text-xs text-muted-foreground mb-3">Create a dummy email and password for your advisor to apply to jobs on your behalf.</p>
+          <div class="grid grid-cols-2 gap-3">
+            <div><label class="text-sm font-medium text-foreground block mb-1">Dummy Email</label><input v-model="form.dummyEmail" type="email" class="input-field" placeholder="apply.yourname@gmail.com" /></div>
+            <div><label class="text-sm font-medium text-foreground block mb-1">Dummy Password</label><input v-model="form.dummyPassword" type="text" class="input-field" placeholder="A password for job portals" /></div>
+          </div>
+        </div>
+
+        <div class="border-t border-border pt-4 mt-2">
+          <h3 class="text-sm font-semibold text-foreground mb-1">Preferred Language</h3>
+          <div class="flex gap-3">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" v-model="form.preferredLanguage" value="de" class="accent-primary" />
+              <span class="text-sm text-foreground">Deutsch</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" v-model="form.preferredLanguage" value="en" class="accent-primary" />
+              <span class="text-sm text-foreground">English</span>
+            </label>
+          </div>
+        </div>
       </div>
       <div class="flex justify-end">
         <button @click="nextStep" :disabled="!form.firstName || !form.lastName" class="h-9 px-5 rounded-full text-sm font-medium bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">
@@ -122,6 +145,9 @@ const form = ref({
   location: auth.user?.profile?.location || '',
   bio: auth.user?.profile?.bio || '',
   baseCoverLetter: '',
+  dummyEmail: '',
+  dummyPassword: '',
+  preferredLanguage: 'de',
 });
 
 function nextStep() { step.value++; }

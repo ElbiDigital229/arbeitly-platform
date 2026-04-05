@@ -322,7 +322,7 @@
 import { ref, computed, reactive, onMounted } from 'vue';
 import api from '../../services/api';
 
-export type AppStatus = 'TO_APPLY' | 'APPLIED' | 'INTERVIEW' | 'ACCEPTED' | 'REJECTED';
+export type AppStatus = 'TO_APPLY' | 'APPLIED' | 'IN_PROGRESS' | 'INTERVIEW' | 'OFFER' | 'ACCEPTED' | 'REJECTED' | 'FAILED';
 
 interface BoardApp {
   id: string;
@@ -348,27 +348,36 @@ interface CvOption {
 const statusLabels: Record<AppStatus, string> = {
   TO_APPLY: 'To Apply',
   APPLIED: 'Applied',
+  IN_PROGRESS: 'In Progress',
   INTERVIEW: 'Interview',
+  OFFER: 'Offer',
   ACCEPTED: 'Accepted',
   REJECTED: 'Rejected',
+  FAILED: 'Failed',
 };
 
-const allStatuses: AppStatus[] = ['TO_APPLY', 'APPLIED', 'INTERVIEW', 'ACCEPTED', 'REJECTED'];
+const allStatuses: AppStatus[] = ['TO_APPLY', 'APPLIED', 'IN_PROGRESS', 'INTERVIEW', 'OFFER', 'ACCEPTED', 'REJECTED', 'FAILED'];
 
 const statusColorMap: Record<AppStatus, string> = {
   TO_APPLY: 'hsl(var(--muted-foreground))',
   APPLIED: 'hsl(var(--info))',
+  IN_PROGRESS: 'hsl(195 80% 60%)',
   INTERVIEW: 'hsl(var(--warning))',
+  OFFER: 'hsl(270 60% 65%)',
   ACCEPTED: 'hsl(var(--success))',
   REJECTED: 'hsl(var(--destructive))',
+  FAILED: 'hsl(30 80% 55%)',
 };
 
 const statusBgMap: Record<AppStatus, string> = {
   TO_APPLY: 'hsl(var(--muted-foreground) / 0.1)',
   APPLIED: 'hsl(var(--info) / 0.1)',
+  IN_PROGRESS: 'hsl(195 80% 60% / 0.1)',
   INTERVIEW: 'hsl(var(--warning) / 0.1)',
+  OFFER: 'hsl(270 60% 65% / 0.1)',
   ACCEPTED: 'hsl(var(--success) / 0.1)',
   REJECTED: 'hsl(var(--destructive) / 0.1)',
+  FAILED: 'hsl(30 80% 55% / 0.1)',
 };
 
 function statusStyle(s: AppStatus) {

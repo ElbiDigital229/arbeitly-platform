@@ -9,6 +9,7 @@ import adminRoutes from './admin.routes.js';
 import planRoutes from './plan.routes.js';
 import paymentRoutes from './payment.routes.js';
 import jobDiscoveryRoutes from './job-discovery.routes.js';
+import faqRoutes from './faq.routes.js';
 
 const router = Router();
 
@@ -22,6 +23,7 @@ router.use('/admin', adminRoutes);
 router.use('/plans', planRoutes);
 router.use('/payments', paymentRoutes);
 router.use('/jobs', jobDiscoveryRoutes);
+router.use('/faq', faqRoutes);
 
 // Health check
 router.get('/health', async (_req, res) => {

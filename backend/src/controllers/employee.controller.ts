@@ -147,6 +147,25 @@ export const employeeController = {
     } catch (err) { next(err); }
   }) as RequestHandler,
 
+  getCandidateFaq: (async (req, res, next) => {
+    try { success(res, await employeeService.getCandidateFaq(req.user!.id, req.params.id)); } catch (err) { next(err); }
+  }) as RequestHandler,
+
+  createFaqItem: (async (req, res, next) => {
+    try { success(res, await employeeService.createFaqItem(req.user!.id, req.params.id, req.body), 201); } catch (err) { next(err); }
+  }) as RequestHandler,
+
+  updateFaqItem: (async (req, res, next) => {
+    try { success(res, await employeeService.updateFaqItem(req.user!.id, req.params.id, req.params.faqId, req.body)); } catch (err) { next(err); }
+  }) as RequestHandler,
+
+  deleteFaqItem: (async (req, res, next) => {
+    try {
+      await employeeService.deleteFaqItem(req.user!.id, req.params.id, req.params.faqId);
+      success(res, { message: 'Deleted' });
+    } catch (err) { next(err); }
+  }) as RequestHandler,
+
   getCandidateQueue: (async (req, res, next) => {
     try {
       await employeeService.verifyAssignment(req.user!.id, req.params.id);

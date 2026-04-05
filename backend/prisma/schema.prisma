@@ -17,9 +17,12 @@ enum Role {
 enum ApplicationStatus {
   TO_APPLY
   APPLIED
+  IN_PROGRESS
   INTERVIEW
+  OFFER
   ACCEPTED
   REJECTED
+  FAILED
 }
 
 model User {
@@ -40,6 +43,8 @@ model User {
   addedJobs          JobDiscovery[]
   queueItemsAsCandidate CandidateJobQueue[] @relation("QueueCandidate")
   queueItemsAsEmployee  CandidateJobQueue[] @relation("QueueEmployee")
+  faqItemsAsCandidate   FaqItem[]           @relation("FaqCandidate")
+  faqItemsAsEmployee    FaqItem[]           @relation("FaqEmployee")
 }
 
 model Plan {
@@ -75,6 +80,9 @@ model CandidateProfile {
   cvCreationsUsed      Int      @default(0)
   applicationLimitUsed Int      @default(0)
   baseCoverLetter      String?
+  dummyEmail           String?
+  dummyPassword        String?
+  preferredLanguage    String   @default("de")
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 
@@ -203,4 +211,22 @@ model CandidateJobQueue {
 
   @@index([candidateId])
   @@index([jobId])
+}
+
+model FaqItem {
+  id           String   @id @default(cuid())
+  candidateId  String
+  employeeId   String
+  question     String
+  answer       String
+  category     String?
+  isApproved   Boolean  @default(false)
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  candidate User @relation("FaqCandidate", fields: [candidateId], references: [id], onDelete: Cascade)
+  employee  User @relation("FaqEmployee", fields: [employeeId], references: [id])
+
+  @@index([candidateId])
 }

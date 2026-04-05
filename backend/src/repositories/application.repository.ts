@@ -9,6 +9,13 @@ export const applicationRepository = {
     });
   },
 
+  async findSelfAddedByUserId(userId: string) {
+    return prisma.application.findMany({
+      where: { userId, OR: [{ source: 'self' }, { source: null }] },
+      orderBy: { createdAt: 'desc' },
+    });
+  },
+
   async findById(id: string) {
     return prisma.application.findUnique({ where: { id } });
   },

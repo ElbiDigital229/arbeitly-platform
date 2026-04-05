@@ -5,7 +5,7 @@ import type { OnboardingDtoType } from '../dtos/onboarding.dto.js';
 
 export const onboardingService = {
   async completeOnboarding(userId: string, dto: OnboardingDtoType) {
-    const updateData = {
+    const updateData: Record<string, any> = {
       firstName: dto.firstName,
       lastName: dto.lastName,
       phone: dto.phone,
@@ -14,6 +14,9 @@ export const onboardingService = {
       baseCoverLetter: dto.baseCoverLetter,
       onboardingCompleted: true,
     };
+    if (dto.dummyEmail !== undefined) updateData.dummyEmail = dto.dummyEmail;
+    if (dto.dummyPassword !== undefined) updateData.dummyPassword = dto.dummyPassword;
+    if (dto.preferredLanguage !== undefined) updateData.preferredLanguage = dto.preferredLanguage;
 
     const profile = await profileRepository.upsert(
       userId,

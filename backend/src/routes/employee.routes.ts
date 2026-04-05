@@ -45,6 +45,12 @@ router.post('/candidates/:id/cover-letters/:clId/variant', employeeController.cr
 router.get('/candidates/:id/cover-letters/:clId/tree', employeeController.getCLVersionTree);
 router.post('/candidates/:id/cover-letters/generate', employeeController.generateCLForJob);
 
+// FAQ
+router.get('/candidates/:id/faq', employeeController.getCandidateFaq);
+router.post('/candidates/:id/faq', employeeController.createFaqItem);
+router.put('/candidates/:id/faq/:faqId', employeeController.updateFaqItem);
+router.delete('/candidates/:id/faq/:faqId', employeeController.deleteFaqItem);
+
 // Queue
 router.get('/candidates/:id/queue', employeeController.getCandidateQueue);
 
