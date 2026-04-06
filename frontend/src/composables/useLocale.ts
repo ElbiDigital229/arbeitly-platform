@@ -1,7 +1,7 @@
 import { ref, computed } from 'vue';
 
 const currentLocale = ref<'de' | 'en'>(
-  (localStorage.getItem('arbeitly_locale') as 'de' | 'en') || 'de'
+  (localStorage.getItem('arbeitly_locale') as 'de' | 'en') || 'en'
 );
 
 const translations: Record<string, Record<string, string>> = {

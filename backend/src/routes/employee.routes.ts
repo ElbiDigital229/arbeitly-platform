@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { employeeController } from '../controllers/employee.controller.js';
 import { authenticate } from '../middleware/auth.middleware.js';
+import { activityService } from '../services/activity.service.js';
 import { HttpError } from '../errors/HttpError.js';
 import type { RequestHandler } from 'express';
 
@@ -54,6 +55,10 @@ router.delete('/candidates/:id/faq/:faqId', employeeController.deleteFaqItem);
 // Queue
 router.get('/candidates/:id/queue', employeeController.getCandidateQueue);
 
+router.get('/activity', async (req, res) => {
+  const items = await activityService.getByUser(req.user!.id);
+  res.json({ success: true, data: items });
+});
 router.put('/profile', employeeController.updateProfile);
 router.put('/change-password', employeeController.changePassword);
 

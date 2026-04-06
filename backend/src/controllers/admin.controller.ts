@@ -90,6 +90,14 @@ export const adminController = {
     try { success(res, await adminService.getEmployeePerformanceDetail(req.params.id)); } catch (err) { next(err); }
   }) as RequestHandler,
 
+  getAuditLog: (async (_req, res, next) => {
+    try { success(res, await adminService.getAuditLog()); } catch (err) { next(err); }
+  }) as RequestHandler,
+
+  getTransactions: (async (_req, res, next) => {
+    try { success(res, await adminService.getTransactions()); } catch (err) { next(err); }
+  }) as RequestHandler,
+
   changePassword: (async (req, res, next) => {
     try {
       const { currentPassword, newPassword } = req.body;

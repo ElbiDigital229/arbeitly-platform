@@ -253,14 +253,16 @@
           <!-- Summary -->
           <div
             v-if="sectionKey === 'summary'"
-            class="glass rounded-xl p-4 space-y-2 cursor-move"
+            :class="['glass rounded-xl p-4 space-y-2 cursor-move transition-all duration-150', dragOverKey === sectionKey && dragKey !== sectionKey ? 'ring-2 ring-primary/40 scale-[1.01]' : '', dragKey === sectionKey ? 'opacity-50' : '']"
             draggable="true"
-            @dragstart="dragStart(sectionKey)"
-            @dragover.prevent
+            @dragstart="dragStart(sectionKey, $event)"
+            @dragover="dragOver(sectionKey, $event)"
+            @dragleave="dragLeave"
+            @dragend="dragEnd"
             @drop="dragDrop(sectionKey)"
           >
             <div class="flex items-center gap-2">
-              <span class="mdi mdi-drag-vertical text-sm shrink-0 text-muted-foreground" />
+              <span class="mdi mdi-drag-vertical text-base shrink-0 text-foreground/50 hover:text-foreground cursor-grab active:cursor-grabbing" />
               <p class="text-xs font-semibold text-muted-foreground">Summary</p>
             </div>
             <textarea
@@ -274,15 +276,17 @@
           <!-- Experience -->
           <div
             v-else-if="sectionKey === 'experience'"
-            class="glass rounded-xl p-4 space-y-3"
+            :class="['glass rounded-xl p-4 space-y-3 cursor-move transition-all duration-150', dragOverKey === sectionKey && dragKey !== sectionKey ? 'ring-2 ring-primary/40 scale-[1.01]' : '', dragKey === sectionKey ? 'opacity-50' : '']"
             draggable="true"
-            @dragstart="dragStart(sectionKey)"
-            @dragover.prevent
+            @dragstart="dragStart(sectionKey, $event)"
+            @dragover="dragOver(sectionKey, $event)"
+            @dragleave="dragLeave"
+            @dragend="dragEnd"
             @drop="dragDrop(sectionKey)"
           >
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-2">
-                <span class="mdi mdi-drag-vertical text-sm shrink-0 text-muted-foreground" />
+                <span class="mdi mdi-drag-vertical text-base shrink-0 text-foreground/50 hover:text-foreground cursor-grab active:cursor-grabbing" />
                 <p class="text-xs font-semibold text-muted-foreground">Work Experience</p>
               </div>
               <button @click="addExp" class="flex items-center gap-1 h-7 px-3 rounded-lg text-xs border border-border text-foreground hover:bg-secondary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
@@ -309,15 +313,17 @@
           <!-- Education -->
           <div
             v-else-if="sectionKey === 'education'"
-            class="glass rounded-xl p-4 space-y-3"
+            :class="['glass rounded-xl p-4 space-y-3 cursor-move transition-all duration-150', dragOverKey === sectionKey && dragKey !== sectionKey ? 'ring-2 ring-primary/40 scale-[1.01]' : '', dragKey === sectionKey ? 'opacity-50' : '']"
             draggable="true"
-            @dragstart="dragStart(sectionKey)"
-            @dragover.prevent
+            @dragstart="dragStart(sectionKey, $event)"
+            @dragover="dragOver(sectionKey, $event)"
+            @dragleave="dragLeave"
+            @dragend="dragEnd"
             @drop="dragDrop(sectionKey)"
           >
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-2">
-                <span class="mdi mdi-drag-vertical text-sm shrink-0 text-muted-foreground" />
+                <span class="mdi mdi-drag-vertical text-base shrink-0 text-foreground/50 hover:text-foreground cursor-grab active:cursor-grabbing" />
                 <p class="text-xs font-semibold text-muted-foreground">Education</p>
               </div>
               <button @click="addEdu" class="flex items-center gap-1 h-7 px-3 rounded-lg text-xs border border-border text-foreground hover:bg-secondary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
@@ -344,14 +350,16 @@
           <!-- Skills -->
           <div
             v-else-if="sectionKey === 'skills'"
-            class="rounded-xl border border-border p-4 space-y-2"
+            :class="['rounded-xl border border-border p-4 space-y-2 cursor-move transition-all duration-150', dragOverKey === sectionKey && dragKey !== sectionKey ? 'ring-2 ring-primary/40 scale-[1.01]' : '', dragKey === sectionKey ? 'opacity-50' : '']"
             draggable="true"
-            @dragstart="dragStart(sectionKey)"
-            @dragover.prevent
+            @dragstart="dragStart(sectionKey, $event)"
+            @dragover="dragOver(sectionKey, $event)"
+            @dragleave="dragLeave"
+            @dragend="dragEnd"
             @drop="dragDrop(sectionKey)"
           >
             <div class="flex items-center gap-2">
-              <span class="mdi mdi-drag-vertical text-sm shrink-0 text-muted-foreground" />
+              <span class="mdi mdi-drag-vertical text-base shrink-0 text-foreground/50 hover:text-foreground cursor-grab active:cursor-grabbing" />
               <p class="text-xs font-semibold text-muted-foreground">Skills</p>
             </div>
             <textarea
@@ -366,15 +374,17 @@
           <!-- Custom section -->
           <div
             v-else-if="sectionKey.startsWith('custom:')"
-            class="glass rounded-xl p-4 space-y-3"
+            :class="['glass rounded-xl p-4 space-y-3 cursor-move transition-all duration-150', dragOverKey === sectionKey && dragKey !== sectionKey ? 'ring-2 ring-primary/40 scale-[1.01]' : '', dragKey === sectionKey ? 'opacity-50' : '']"
             draggable="true"
-            @dragstart="dragStart(sectionKey)"
-            @dragover.prevent
+            @dragstart="dragStart(sectionKey, $event)"
+            @dragover="dragOver(sectionKey, $event)"
+            @dragleave="dragLeave"
+            @dragend="dragEnd"
             @drop="dragDrop(sectionKey)"
           >
             <div class="flex items-center justify-between gap-3">
               <div class="flex items-center gap-2">
-                <span class="mdi mdi-drag-vertical text-sm shrink-0 text-muted-foreground" />
+                <span class="mdi mdi-drag-vertical text-base shrink-0 text-foreground/50 hover:text-foreground cursor-grab active:cursor-grabbing" />
                 <p class="text-xs font-semibold text-muted-foreground">Custom section</p>
               </div>
               <button @click="removeCustomSection(sectionKey)" class="h-7 px-3 rounded-lg text-xs text-destructive hover:bg-destructive/10">Remove</button>
@@ -656,7 +666,8 @@ const TEMPLATES = [
 
 const PREDEFINED_SECTIONS = [
   'Courses & Certifications', 'Projects', 'Publications', 'Presentations & Talks',
-  'Thesis & Research', 'Awards & Honours', 'Volunteer Work', 'Languages', 'References',
+  'Conferences & Trainings', 'Thesis & Research', 'Awards & Honours', 'Volunteer Work',
+  'Languages', 'References', 'Research Interests', 'Professional Affiliations',
 ];
 
 // ── CSS for CV styles ─────────────────────────────────────────────────────────
@@ -771,6 +782,7 @@ const saveDialogOpen = ref(false);
 const saveName = ref('');
 const editingVersionId = ref<string | null>(null);
 const dragKey = ref<string>('');
+const dragOverKey = ref<string>('');
 
 const cvVersions = ref<CvVersion[]>([]);
 
@@ -846,9 +858,28 @@ function addCustomSection(heading: string) {
 }
 
 // ── Drag & drop section reorder ───────────────────────────────────────────────
-function dragStart(key: string) { dragKey.value = key; }
+function dragStart(key: string, e: DragEvent) {
+  dragKey.value = key;
+  if (e.dataTransfer) {
+    e.dataTransfer.effectAllowed = 'move';
+  }
+}
+function dragOver(key: string, e: DragEvent) {
+  e.preventDefault();
+  if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+  dragOverKey.value = key;
+}
+function dragLeave() {
+  dragOverKey.value = '';
+}
+function dragEnd() {
+  dragKey.value = '';
+  dragOverKey.value = '';
+}
 function dragDrop(toKey: string) {
   const from = dragKey.value;
+  dragOverKey.value = '';
+  dragKey.value = '';
   if (!from || from === toKey) return;
   const order = [...editorData.sectionOrder];
   const fromIdx = order.indexOf(from as CvSectionKey);
@@ -965,39 +996,79 @@ async function onCvFileSelect(e: Event) {
       const sectionOrder: CvSectionKey[] = aiOrder.filter(k => ['summary', 'experience', 'education', 'skills'].includes(k)) as CvSectionKey[];
 
       // Build custom sections and insert them at the correct position based on AI section order
+      const ts = Date.now();
       const customSectionMap: Record<string, { heading: string; text: string; id: string } | null> = {
         certifications: parsed.certifications?.length ? {
-          id: `sec_certs_${Date.now()}`,
-          heading: 'Professional Qualification',
+          id: `sec_certs_${ts}`,
+          heading: 'Professional Qualifications',
           text: parsed.certifications.map((c: any) =>
             [c.name, c.institution, c.dates, c.details].filter(Boolean).join(' — ')
           ).join('\n'),
         } : null,
         languages: parsed.languages?.length ? {
-          id: `sec_langs_${Date.now() + 1}`,
+          id: `sec_langs_${ts + 1}`,
           heading: 'Language Skills',
           text: parsed.languages.map((l: any) =>
             l.level ? `${l.language} (${l.level})` : l.language
           ).join(', '),
         } : null,
         leadership: parsed.leadership?.length ? {
-          id: `sec_lead_${Date.now() + 2}`,
-          heading: 'Leadership Development',
+          id: `sec_lead_${ts + 2}`,
+          heading: 'Leadership & Affiliations',
           text: parsed.leadership.map((l: any) =>
             [l.title, l.organization, l.dates, l.description].filter(Boolean).join(' — ')
           ).join('\n'),
         } : null,
+        publications: parsed.publications?.length ? {
+          id: `sec_pubs_${ts + 3}`,
+          heading: 'Publications',
+          text: parsed.publications.map((p: any) =>
+            [p.citation, p.year ? `(${p.year})` : ''].filter(Boolean).join(' ')
+          ).join('\n'),
+        } : null,
+        conferences: parsed.conferences?.length ? {
+          id: `sec_conf_${ts + 4}`,
+          heading: 'Conferences, Presentations & Trainings',
+          text: parsed.conferences.map((c: any) =>
+            [c.dates, c.title, c.location, c.description].filter(Boolean).join(' — ')
+          ).join('\n'),
+        } : null,
+        references: parsed.references?.length ? {
+          id: `sec_refs_${ts + 5}`,
+          heading: 'References',
+          text: parsed.references.map((r: any) =>
+            [r.name, r.title, r.organization, r.phone, r.email].filter(Boolean).join(', ')
+          ).join('\n'),
+        } : null,
+        research_interests: parsed.research_interests ? {
+          id: `sec_ri_${ts + 6}`,
+          heading: 'Research Interests',
+          text: parsed.research_interests,
+        } : null,
         interests: parsed.interests ? {
-          id: `sec_int_${Date.now() + 3}`,
+          id: `sec_int_${ts + 7}`,
           heading: 'Interests',
           text: parsed.interests,
         } : null,
         additional_information: parsed.additional_information ? {
-          id: `sec_add_${Date.now() + 4}`,
+          id: `sec_add_${ts + 8}`,
           heading: 'Additional Information',
           text: parsed.additional_information,
         } : null,
       };
+
+      // Also map any custom_sections from AI
+      if (parsed.custom_sections?.length) {
+        for (let i = 0; i < parsed.custom_sections.length; i++) {
+          const cs = parsed.custom_sections[i];
+          if (cs.heading && cs.content) {
+            const id = `sec_ai_${ts + 10 + i}`;
+            customSectionMap[`custom_ai_${i}`] = { id, heading: cs.heading, text: cs.content };
+            // Append to AI order if not already there
+            if (!aiOrder.includes(`custom_ai_${i}`)) aiOrder.push(`custom_ai_${i}`);
+          }
+        }
+      }
 
       // Insert custom sections at position matching AI order
       for (const key of aiOrder) {
@@ -1099,7 +1170,7 @@ async function handleSaveVersion() {
 
   try {
     if (editingVersionId.value) {
-      await api.put(`/api/cvs/${editingVersionId.value}`, {
+      await api.put(`/cvs/${editingVersionId.value}`, {
         title: name,
         editorData: editorState,
         htmlContent: content,
@@ -1137,7 +1208,7 @@ async function handleSaveVersion() {
 
 async function openCvVersion(v: CvVersion) {
   try {
-    const { data } = await api.get(`/api/cvs/${v.id}`);
+    const { data } = await api.get(`/cvs/${v.id}`);
     const cv = data.data;
     if (cv.editorData) {
       Object.assign(editorData, {
@@ -1162,7 +1233,7 @@ async function openCvVersion(v: CvVersion) {
 
 async function deleteCvVersion(id: string) {
   try {
-    await api.delete(`/api/cvs/${id}`);
+    await api.delete(`/cvs/${id}`);
     cvVersions.value = cvVersions.value.filter(v => v.id !== id);
   } catch (err) {
     console.error('Failed to delete CV:', err);

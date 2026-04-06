@@ -1,5 +1,73 @@
 <template>
   <div class="max-w-2xl space-y-6">
+
+    <!-- ═══ READ-ONLY VIEW (onboarding completed) ═══ -->
+    <template v-if="auth.user?.profile?.onboardingCompleted && !editing">
+      <div class="flex items-center justify-between">
+        <div>
+          <h1 class="font-display text-2xl font-bold text-foreground">Onboarding Answers</h1>
+          <p class="text-sm text-muted-foreground mt-0.5">Submitted and locked. Contact support to make changes.</p>
+        </div>
+        <router-link to="/candidate/profile" class="h-9 px-4 rounded-full text-sm font-medium bg-secondary text-foreground flex items-center gap-1.5 hover:bg-secondary/80">
+          <span class="mdi mdi-arrow-left text-sm" /> Back to Profile
+        </router-link>
+      </div>
+
+      <!-- Personal Info -->
+      <div class="rounded-xl border border-border bg-card">
+        <div class="px-6 py-4 border-b border-border">
+          <h3 class="font-display text-base font-semibold text-foreground flex items-center gap-2">
+            <span class="mdi mdi-account-outline" /> Personal Information
+          </h3>
+        </div>
+        <div class="px-6 py-4 space-y-3">
+          <div class="grid grid-cols-2 gap-4">
+            <div><p class="text-xs text-muted-foreground">First Name</p><p class="text-sm font-medium text-foreground">{{ profile?.firstName || '—' }}</p></div>
+            <div><p class="text-xs text-muted-foreground">Last Name</p><p class="text-sm font-medium text-foreground">{{ profile?.lastName || '—' }}</p></div>
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div><p class="text-xs text-muted-foreground">Phone</p><p class="text-sm font-medium text-foreground">{{ profile?.phone || '—' }}</p></div>
+            <div><p class="text-xs text-muted-foreground">Location</p><p class="text-sm font-medium text-foreground">{{ profile?.location || '—' }}</p></div>
+          </div>
+          <div><p class="text-xs text-muted-foreground">Bio</p><p class="text-sm text-foreground whitespace-pre-wrap">{{ profile?.bio || '—' }}</p></div>
+        </div>
+      </div>
+
+      <!-- Application Credentials -->
+      <div class="rounded-xl border border-border bg-card">
+        <div class="px-6 py-4 border-b border-border">
+          <h3 class="font-display text-base font-semibold text-foreground flex items-center gap-2">
+            <span class="mdi mdi-key-outline" /> Application Credentials
+          </h3>
+        </div>
+        <div class="px-6 py-4 space-y-3">
+          <div class="grid grid-cols-2 gap-4">
+            <div><p class="text-xs text-muted-foreground">Dummy Email</p><p class="text-sm font-medium text-foreground">{{ (profile as any)?.dummyEmail || '—' }}</p></div>
+            <div><p class="text-xs text-muted-foreground">Dummy Password</p><p class="text-sm font-medium text-foreground">{{ (profile as any)?.dummyPassword || '—' }}</p></div>
+          </div>
+          <div>
+            <p class="text-xs text-muted-foreground">Preferred Language</p>
+            <p class="text-sm font-medium text-foreground">{{ (profile as any)?.preferredLanguage === 'de' ? 'Deutsch' : 'English' }}</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cover Letter -->
+      <div class="rounded-xl border border-border bg-card">
+        <div class="px-6 py-4 border-b border-border">
+          <h3 class="font-display text-base font-semibold text-foreground flex items-center gap-2">
+            <span class="mdi mdi-text-box-outline" /> Base Cover Letter
+          </h3>
+        </div>
+        <div class="px-6 py-4">
+          <p class="text-sm text-foreground whitespace-pre-wrap font-mono">{{ (profile as any)?.baseCoverLetter || '—' }}</p>
+        </div>
+      </div>
+    </template>
+
+    <!-- ═══ EDITABLE WIZARD (onboarding not completed) ═══ -->
+    <template v-else>
+
     <!-- Step indicator -->
     <div class="flex items-center gap-3">
       <div v-for="(s, i) in steps" :key="i" class="flex items-center gap-2">
@@ -78,16 +146,13 @@
             <p class="text-sm font-medium text-foreground truncate">{{ cvFile.name }}</p>
             <p class="text-[10px] text-muted-foreground">{{ (cvFile.size / 1024).toFixed(0) }} KB</p>
           </div>
-          <button @click="cvFile = null" class="text-muted-foreground hover:text-destructive"><span class="mdi mdi-close" /></button>
+          <span v-if="uploading" class="mdi mdi-loading mdi-spin text-primary shrink-0" />
+          <span v-if="cvUploaded" class="mdi mdi-check-circle text-green-500 text-lg shrink-0" />
+          <button v-if="!uploading" @click="cvFile = null; cvUploaded = false" class="text-muted-foreground hover:text-destructive shrink-0"><span class="mdi mdi-close" /></button>
         </div>
+        <p v-if="uploading" class="text-xs text-muted-foreground">Uploading and parsing your CV — this may take a moment...</p>
         <div v-if="cvUploaded" class="flex items-center gap-2 text-sm text-green-500">
-          <span class="mdi mdi-check-circle" /> CV uploaded successfully
-        </div>
-        <button v-if="cvFile && !cvUploaded && !uploading" @click="uploadCV" class="h-9 px-5 rounded-full text-sm font-medium bg-primary text-primary-foreground hover:opacity-90">
-          Upload CV
-        </button>
-        <div v-if="uploading" class="flex items-center gap-2 text-sm text-muted-foreground">
-          <span class="mdi mdi-loading mdi-spin" /> Uploading...
+          <span class="mdi mdi-check-circle" /> CV uploaded and parsed successfully
         </div>
       </div>
       <div class="flex justify-between">
@@ -117,18 +182,21 @@ I am writing to express my interest in..." />
 
     <!-- Error -->
     <p v-if="error" class="text-sm text-destructive">{{ error }}</p>
+
+    </template><!-- end v-else (editable wizard) -->
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import api from '../../services/api';
 import { useAuthStore } from '../../stores/auth';
-// Auth store auto-attaches token via interceptor
 
 const auth = useAuthStore();
 const router = useRouter();
+const editing = ref(false);
+const profile = computed(() => auth.user?.profile);
 
 const steps = ['Personal Info', 'Upload CV', 'Cover Letter'];
 const step = ref(0);
@@ -147,19 +215,19 @@ const form = ref({
   baseCoverLetter: '',
   dummyEmail: '',
   dummyPassword: '',
-  preferredLanguage: 'de',
+  preferredLanguage: localStorage.getItem('arbeitly_locale') || 'en',
 });
 
 function nextStep() { step.value++; }
 
 function handleDrop(e: DragEvent) {
   const file = e.dataTransfer?.files[0];
-  if (file) { cvFile.value = file; cvUploaded.value = false; }
+  if (file) { cvFile.value = file; cvUploaded.value = false; uploadCV(); }
 }
 
 function handleFileSelect(e: Event) {
   const file = (e.target as HTMLInputElement).files?.[0];
-  if (file) { cvFile.value = file; cvUploaded.value = false; }
+  if (file) { cvFile.value = file; cvUploaded.value = false; uploadCV(); }
 }
 
 async function uploadCV() {
@@ -169,8 +237,10 @@ async function uploadCV() {
   try {
     const fd = new FormData();
     fd.append('file', cvFile.value);
+    fd.append('title', cvFile.value.name.replace(/\.[^.]+$/, '') || 'My CV');
     await api.post('/cvs', fd, {
       headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 120000, // CV parsing with AI can take up to 2 minutes
     });
     cvUploaded.value = true;
   } catch (e: any) {

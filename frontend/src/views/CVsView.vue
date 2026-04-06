@@ -136,7 +136,7 @@ async function handleUpload() {
 async function deleteCV(id: string) {
   if (!confirm('Are you sure you want to delete this CV?')) return;
   try {
-    await api.delete(`/api/cvs/${id}`);
+    await api.delete(`/cvs/${id}`);
     await fetchCVs();
   } catch {
     // Handle silently

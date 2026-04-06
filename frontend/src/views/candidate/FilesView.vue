@@ -407,7 +407,7 @@ async function executeDelete() {
   if (!deleteTarget.value) return;
   deleting.value = true;
   try {
-    await api.delete(`/api/cvs/${deleteTarget.value.id}`);
+    await api.delete(`/cvs/${deleteTarget.value.id}`);
     cvs.value = cvs.value.filter(c => c.id !== deleteTarget.value!.id);
     if (selected.value?.id === deleteTarget.value.id) {
       selected.value = cvs.value[0] || null;

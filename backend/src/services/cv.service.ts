@@ -5,6 +5,7 @@ import { env } from '../config/env.js';
 import { cvRepository } from '../repositories/cv.repository.js';
 import { aiService } from './ai.service.js';
 import { HttpError } from '../errors/HttpError.js';
+import { activityService } from './activity.service.js';
 import { extractAllImages } from './pdf-image.service.js';
 import { prisma } from '../config/prisma.js';
 import type { CreateCVDtoType, UpdateCVDtoType } from '../dtos/cv.dto.js';
@@ -70,12 +71,13 @@ export const cvService = {
       user: { connect: { id: userId } },
     });
 
+    activityService.log(userId, 'cv', 'Uploaded CV', title);
     return cv;
   },
 
   async createCV(userId: string, dto: CreateCVDtoType) {
     await checkAndIncrementCvQuota(userId);
-    return cvRepository.create({
+    const cv = await cvRepository.create({
       title: dto.title,
       editorData: dto.editorData ?? undefined,
       htmlContent: dto.htmlContent ?? undefined,
@@ -83,6 +85,8 @@ export const cvService = {
       language: dto.language ?? undefined,
       user: { connect: { id: userId } },
     });
+    activityService.log(userId, 'cv', 'Created CV', dto.title);
+    return cv;
   },
 
   async getCVs(userId: string) {
@@ -108,7 +112,9 @@ export const cvService = {
     if (cv.userId !== userId) {
       throw HttpError.forbidden('You do not have access to this CV');
     }
-    return cvRepository.update(cvId, dto);
+    const updated = await cvRepository.update(cvId, dto);
+    activityService.log(userId, 'cv', 'Updated CV', cv.title);
+    return updated;
   },
 
   async deleteCV(userId: string, cvId: string) {
@@ -129,6 +135,7 @@ export const cvService = {
       }
     }
 
+    activityService.log(userId, 'cv', 'Deleted CV', cv.title);
     return cvRepository.delete(cvId);
   },
 

@@ -122,9 +122,12 @@
             />
           </div>
           <p class="text-xs text-muted-foreground">{{ Math.max(0, cvLimit - cvCount) }} builds remaining</p>
-          <p class="text-xs text-muted-foreground border-t border-border pt-3">
+          <p v-if="!auth.user?.plan" class="text-xs text-muted-foreground border-t border-border pt-3">
             Limits reset on plan upgrade.
             <router-link to="/pricing" class="text-primary hover:underline">Upgrade to remove limits →</router-link>
+          </p>
+          <p v-else class="text-xs text-muted-foreground border-t border-border pt-3">
+            {{ auth.user.plan.name }} plan active.
           </p>
         </div>
       </div>
@@ -442,30 +445,29 @@ const loadingActivity = ref(false);
 const formatDate = (iso: string) =>
   new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
+const CATEGORY_ICONS: Record<string, string> = {
+  account: 'mdi-account-outline',
+  onboarding: 'mdi-clipboard-check-outline',
+  cv: 'mdi-file-document-outline',
+  application: 'mdi-briefcase-outline',
+  plan: 'mdi-star-outline',
+  profile: 'mdi-account-cog-outline',
+};
+
 watch(activeTab, async (tab) => {
   if (tab !== 'activity' || activityItems.value.length > 0) return;
   loadingActivity.value = true;
   try {
-    const [cvsRes, appsRes] = await Promise.all([
-      api.get('/cvs').catch(() => ({ data: { data: [] } })),
-      api.get('/applications').catch(() => ({ data: { data: [] } })),
-    ]);
-    const cvItems: ActivityItem[] = (cvsRes.data.data || []).map((cv: any) => ({
-      id: `cv-${cv.id}`,
-      icon: 'mdi-file-document-outline',
-      label: `Created CV: ${cv.title}`,
-      sub: 'CV Builder',
-      date: formatDate(cv.createdAt),
+    const { data } = await api.get('/activity');
+    activityItems.value = (data.data || []).map((item: any) => ({
+      id: item.id,
+      icon: CATEGORY_ICONS[item.category] || 'mdi-circle-outline',
+      label: item.action,
+      sub: item.detail || item.category,
+      date: formatDate(item.createdAt),
     }));
-    const appItems: ActivityItem[] = (appsRes.data.data || []).map((app: any) => ({
-      id: `app-${app.id}`,
-      icon: 'mdi-briefcase-outline',
-      label: `${app.jobTitle} at ${app.companyName}`,
-      sub: app.status?.toLowerCase().replace('_', ' ') || 'application',
-      date: formatDate(app.createdAt),
-    }));
-    activityItems.value = [...cvItems, ...appItems]
-      .sort((a, b) => b.date.localeCompare(a.date));
+  } catch {
+    activityItems.value = [];
   } finally {
     loadingActivity.value = false;
   }

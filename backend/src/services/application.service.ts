@@ -1,6 +1,7 @@
 import { applicationRepository } from '../repositories/application.repository.js';
 import { profileRepository } from '../repositories/profile.repository.js';
 import { HttpError } from '../errors/HttpError.js';
+import { activityService } from './activity.service.js';
 import type { CreateApplicationDtoType, UpdateApplicationDtoType } from '../dtos/application.dto.js';
 
 async function checkAndIncrementAppQuota(userId: string) {
@@ -20,10 +21,12 @@ async function checkAndIncrementAppQuota(userId: string) {
 export const applicationService = {
   async createApplication(userId: string, dto: CreateApplicationDtoType) {
     await checkAndIncrementAppQuota(userId);
-    return applicationRepository.create({
+    const app = await applicationRepository.create({
       ...dto,
       user: { connect: { id: userId } },
     });
+    activityService.log(userId, 'application', 'Created application', `${dto.jobTitle} at ${dto.companyName}`);
+    return app;
   },
 
   async bulkCreateApplications(userId: string, dtos: CreateApplicationDtoType[]) {
@@ -63,7 +66,9 @@ export const applicationService = {
     if (application.userId !== userId) {
       throw HttpError.forbidden('You do not have access to this application');
     }
-    return applicationRepository.update(applicationId, dto);
+    const updated = await applicationRepository.update(applicationId, dto);
+    activityService.log(userId, 'application', 'Updated application', `${application.jobTitle} at ${application.companyName}`);
+    return updated;
   },
 
   async deleteApplication(userId: string, applicationId: string) {
@@ -74,6 +79,7 @@ export const applicationService = {
     if (application.userId !== userId) {
       throw HttpError.forbidden('You do not have access to this application');
     }
+    activityService.log(userId, 'application', 'Deleted application', `${application.jobTitle} at ${application.companyName}`);
     return applicationRepository.delete(applicationId);
   },
 };

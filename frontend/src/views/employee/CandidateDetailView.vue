@@ -130,10 +130,44 @@
           </div>
         </div>
 
-        <!-- CV parsed content -->
-        <div v-if="selectedCv?.parsedData" class="rounded-xl border border-border bg-card p-6 space-y-4">
-          <h3 class="font-display text-base font-semibold text-foreground">CV Content</h3>
-          <pre class="text-xs text-foreground whitespace-pre-wrap font-mono max-h-[60vh] overflow-y-auto">{{ typeof selectedCv.parsedData === 'string' ? selectedCv.parsedData : JSON.stringify(selectedCv.parsedData, null, 2) }}</pre>
+        <!-- CV rendered preview -->
+        <div v-if="selectedCv?.htmlContent || selectedCvRenderedHtml" class="rounded-xl border border-border bg-white overflow-hidden">
+          <iframe
+            ref="cvPreviewFrame"
+            class="w-full border-0"
+            style="min-height: 600px; max-height: 80vh;"
+            :srcdoc="selectedCvRenderedHtml"
+          />
+        </div>
+        <!-- Fallback: structured view from parsedData -->
+        <div v-else-if="selectedCv?.parsedData" class="rounded-xl border border-border bg-card p-6 space-y-4">
+          <h3 class="font-display text-base font-semibold text-foreground">{{ parsedPersonal?.name || 'CV Content' }}</h3>
+          <p v-if="parsedPersonal?.email || parsedPersonal?.phone" class="text-xs text-muted-foreground">
+            {{ [parsedPersonal?.email, parsedPersonal?.phone, parsedPersonal?.location].filter(Boolean).join(' · ') }}
+          </p>
+          <div v-if="parsedSummary" class="space-y-1">
+            <h4 class="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Summary</h4>
+            <p class="text-sm text-foreground">{{ parsedSummary }}</p>
+          </div>
+          <div v-if="parsedExperience?.length" class="space-y-2">
+            <h4 class="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Experience</h4>
+            <div v-for="(exp, i) in parsedExperience" :key="i" class="space-y-0.5">
+              <p class="text-sm font-medium text-foreground">{{ exp.title }} — {{ exp.company }}</p>
+              <p class="text-xs text-muted-foreground">{{ exp.dates }}</p>
+              <p class="text-xs text-foreground whitespace-pre-wrap">{{ exp.description }}</p>
+            </div>
+          </div>
+          <div v-if="parsedEducation?.length" class="space-y-2">
+            <h4 class="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Education</h4>
+            <div v-for="(edu, i) in parsedEducation" :key="i" class="space-y-0.5">
+              <p class="text-sm font-medium text-foreground">{{ edu.degree }} — {{ edu.institution }}</p>
+              <p class="text-xs text-muted-foreground">{{ edu.dates }}</p>
+            </div>
+          </div>
+          <div v-if="parsedSkills?.length" class="space-y-1">
+            <h4 class="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Skills</h4>
+            <p class="text-sm text-foreground">{{ parsedSkills.join(', ') }}</p>
+          </div>
         </div>
         <div v-else class="rounded-xl border border-border bg-card p-6">
           <p class="text-sm text-muted-foreground">No parsed content available for this CV.</p>
@@ -439,6 +473,33 @@ const initials = computed(() => fullName.value.split(' ').map((n: string) => n[0
 
 const selectedCv = computed(() => cvs.value.find(c => c.id === selectedCvId.value));
 const selectedCl = computed(() => coverLetters.value.find(c => c.id === selectedClId.value));
+
+// CV preview helpers
+const cvPreviewFrame = ref<HTMLIFrameElement | null>(null);
+const selectedCvRenderedHtml = computed(() => {
+  const cv = selectedCv.value;
+  if (!cv) return '';
+  if (cv.htmlContent) {
+    const style = cv.style || 'modern';
+    const CSS: Record<string, string> = {
+      modern: `body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#1a1a2e;margin:0;padding:0}.w{max-width:780px;margin:0 auto;padding:40px 48px}h1{font-size:2rem;font-weight:700;margin:0 0 4px;color:#0f172a}h2{font-size:.9rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:#0ea5e9;border-bottom:2px solid #0ea5e9;padding-bottom:4px;margin:20px 0 8px}p,li{font-size:.88rem;line-height:1.65;color:#334155;margin:3px 0}ul{padding-left:18px}strong{color:#0f172a}.contact{font-size:.82rem;color:#64748b;margin:4px 0 20px}`,
+      classic: `body{font-family:Georgia,serif;color:#1a1a1a;margin:0;padding:0}.w{max-width:780px;margin:0 auto;padding:48px 56px}h1{font-size:1.9rem;font-weight:700;margin:0 0 4px;border-bottom:3px double #1a1a1a;padding-bottom:8px}h2{font-size:.9rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin:20px 0 6px;color:#1a1a1a}p,li{font-size:.9rem;line-height:1.7;color:#2d2d2d;margin:3px 0}ul{padding-left:20px}.contact{font-size:.82rem;color:#555;margin:4px 0 20px}`,
+      minimal: `body{font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#222;margin:0;padding:0}.w{max-width:760px;margin:0 auto;padding:44px 52px}h1{font-size:1.8rem;font-weight:300;letter-spacing:.04em;margin:0 0 4px}h2{font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:#888;margin:24px 0 6px}p,li{font-size:.87rem;line-height:1.6;color:#444;margin:3px 0}ul{padding-left:16px}.contact{font-size:.8rem;color:#888;margin:4px 0 20px}`,
+    };
+    return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>*{box-sizing:border-box}${CSS[style] || CSS.modern}</style></head><body><div class="w">${cv.htmlContent}</div></body></html>`;
+  }
+  return '';
+});
+const parsedData = computed(() => {
+  const cv = selectedCv.value;
+  if (!cv?.parsedData) return null;
+  return typeof cv.parsedData === 'string' ? JSON.parse(cv.parsedData) : cv.parsedData;
+});
+const parsedPersonal = computed(() => parsedData.value?.personal);
+const parsedSummary = computed(() => parsedData.value?.summary);
+const parsedExperience = computed(() => parsedData.value?.experience);
+const parsedEducation = computed(() => parsedData.value?.education);
+const parsedSkills = computed(() => parsedData.value?.skills);
 
 const kanbanCols = computed(() => {
   const cols: Record<string, any[]> = {};

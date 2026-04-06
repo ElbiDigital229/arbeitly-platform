@@ -103,27 +103,29 @@ function formatDate(iso: string) {
 
 onMounted(async () => {
   try {
-    const [cRes, eRes] = await Promise.all([
-      api.get('/admin/candidates', { headers: store.getAuthHeaders() }),
-      api.get('/admin/employees', { headers: store.getAuthHeaders() }),
-    ]);
-    const candidates = (cRes.data.data || []).map((c: any) => ({ id: c.id, email: c.email, role: 'CANDIDATE', activityCount: c._count?.applications || 0 }));
-    const employees = (eRes.data.data || []).map((e: any) => ({ id: e.id, email: e.email, role: 'EMPLOYEE', activityCount: e._count?.assignedCandidates || 0 }));
-    users.value = [...candidates, ...employees].sort((a, b) => b.activityCount - a.activityCount);
+    const { data } = await api.get('/admin/audit-log', { headers: store.getAuthHeaders() });
+    const logs = data.data || [];
 
-    // Build activity feed from candidate applications
-    for (const c of cRes.data.data || []) {
-      const appsRes = await api.get(`/admin/candidates/${c.id}/applications`, { headers: store.getAuthHeaders() }).catch(() => ({ data: { data: [] } }));
-      for (const app of appsRes.data.data || []) {
-        activities.value.push({
-          userId: c.id,
-          role: 'CANDIDATE',
-          action: `Application: ${app.jobTitle} at ${app.companyName}`,
-          detail: app.status?.replace('_', ' '),
-          date: formatDate(app.createdAt),
-        });
+    // Build activities list
+    activities.value = logs.map((item: any) => ({
+      userId: item.userId,
+      role: item.user?.role || 'CANDIDATE',
+      action: item.action,
+      detail: item.detail || item.category,
+      date: formatDate(item.createdAt),
+    }));
+
+    // Build unique user list with activity counts
+    const userMap = new Map<string, any>();
+    for (const item of logs) {
+      const u = item.user;
+      if (!u) continue;
+      if (!userMap.has(u.id)) {
+        userMap.set(u.id, { id: u.id, email: u.email, role: u.role, activityCount: 0 });
       }
+      userMap.get(u.id)!.activityCount++;
     }
+    users.value = [...userMap.values()].sort((a, b) => b.activityCount - a.activityCount);
   } catch (err) { console.error(err); }
 });
 </script>

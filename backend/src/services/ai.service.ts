@@ -9,12 +9,37 @@ async function extractTextFromPdf(buffer: Buffer): Promise<string> {
   for (let i = 1; i <= doc.numPages; i++) {
     const page = await doc.getPage(i);
     const content = await page.getTextContent();
-    const text = content.items
-      .map((item: any) => ('str' in item ? item.str : ''))
-      .join(' ');
-    pages.push(text);
+    // Sort items by Y (descending = top-to-bottom) then X (left-to-right)
+    const items = (content.items as any[])
+      .filter((item) => 'str' in item && item.str)
+      .map((item) => ({
+        str: item.str as string,
+        x: item.transform ? item.transform[4] : 0,
+        y: item.transform ? item.transform[5] : 0,
+        fontSize: item.transform ? Math.abs(item.transform[0]) : 12,
+      }))
+      .sort((a, b) => b.y - a.y || a.x - b.x);
+
+    const lines: string[] = [];
+    let currentLine = '';
+    let lastY: number | null = null;
+
+    for (const item of items) {
+      if (lastY !== null) {
+        const yDelta = Math.abs(lastY - item.y);
+        // New line if Y changes by more than half the font size
+        if (yDelta > item.fontSize * 0.5) {
+          lines.push(currentLine.trim());
+          currentLine = '';
+        }
+      }
+      currentLine += (currentLine ? ' ' : '') + item.str;
+      lastY = item.y;
+    }
+    if (currentLine.trim()) lines.push(currentLine.trim());
+    pages.push(lines.join('\n'));
   }
-  return pages.join('\n\n');
+  return pages.join('\n\n--- PAGE BREAK ---\n\n');
 }
 
 /**
@@ -60,6 +85,8 @@ export interface ParsedCVData {
     phone: string;
     location: string;
     nationality: string;
+    date_of_birth: string;
+    marital_status: string;
     linkedin: string;
     linkedin_url: string;
     website: string;
@@ -100,8 +127,30 @@ export interface ParsedCVData {
     dates: string;
     description: string;
   }[];
+  publications: {
+    citation: string;
+    year: string;
+  }[];
+  conferences: {
+    title: string;
+    location: string;
+    dates: string;
+    description: string;
+  }[];
+  references: {
+    name: string;
+    title: string;
+    organization: string;
+    phone: string;
+    email: string;
+  }[];
+  research_interests: string;
   interests: string;
   additional_information: string;
+  custom_sections: {
+    heading: string;
+    content: string;
+  }[];
   photoDataUrl?: string;
 }
 
@@ -109,22 +158,27 @@ export const aiService = {
   async parseCV(fileBuffer: Buffer, mimeType: string): Promise<ParsedCVData> {
     const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
 
-    const prompt = `Extract the content of this CV into JSON. Return ONLY valid JSON, no markdown fences, no extra text.
+    const prompt = `Extract ALL content from this CV/resume into JSON. Return ONLY valid JSON, no markdown fences, no extra text.
 
 CRITICAL RULES:
+- Extract EVERY section and ALL details from the CV. Do NOT skip, summarize, or omit anything.
 - Extract ONLY what is written in the CV. Do NOT invent, guess, or add placeholder text.
 - If a field has no data in the CV, use "" or [].
-- Copy text verbatim — do not rephrase or summarize bullet points.
-- Each job/degree/cert gets its own entry.
+- Copy text VERBATIM — do not rephrase, shorten, or summarize bullet points or descriptions.
+- Each job/degree/cert/publication/conference gets its own entry in the appropriate array.
 - For experience "description": join all bullet points with "\\n" between lines. Do NOT prefix lines with "- " or "• " — just the plain text of each bullet.
 - For skills: flat array of individual skills, not categories.
-- For "linkedin": extract the display text (e.g. the person's name as shown).
-- For "linkedin_url": extract the actual URL if present (e.g. "https://linkedin.com/in/..."). If no URL, use "".
-- "section_order": Return an array of section keys in the EXACT order they appear in the original CV. Use these keys: "summary", "experience", "education", "skills", "certifications", "languages", "leadership", "interests", "additional_information". Only include sections that exist in the CV.
-- When key figures appear in text (monetary amounts like "€ 280 million", "€ 5 billion", percentages, or notable achievements like "Gold Medal"), wrap them in **bold** markers like this: **€ 280 million**. This helps preserve emphasis from the original document.
+- For "linkedin": extract the display text. For "linkedin_url": extract the actual URL if present.
+- "section_order": Return an array of section keys in the EXACT order they appear in the original CV. Available keys: "summary", "experience", "education", "skills", "certifications", "languages", "leadership", "publications", "conferences", "references", "research_interests", "interests", "additional_information". Also include "custom:<heading>" for any section that does not fit the predefined keys. Only include sections that actually exist in the CV.
+- "publications": Extract ALL publications, papers, book chapters, journal articles with full citation text and year.
+- "conferences": Extract ALL conferences, presentations, workshops, trainings attended or facilitated — each as a separate entry with title, location, dates, and description.
+- "references" / "referees": Extract ALL referees/references with name, title, organization, phone, email.
+- "research_interests": Extract research interests or areas of specialization as a single string.
+- "custom_sections": For any section in the CV that does not map to the predefined fields (e.g. "Professional Affiliations", "Volunteering", "Projects", "Awards"), create a custom section with heading and content (content as a string with \\n between items).
+- When key figures appear in text (monetary amounts, percentages, notable achievements), wrap them in **bold** markers.
 
 JSON structure:
-{"personal":{"name":"","email":"","phone":"","location":"","nationality":"","linkedin":"","linkedin_url":"","website":"","github":"","portfolio":""},"section_order":[],"summary":"","experience":[{"title":"","company":"","dates":"","description":""}],"education":[{"degree":"","institution":"","dates":"","gpa":"","courses":"","awards":"","details":""}],"certifications":[{"name":"","institution":"","dates":"","details":""}],"skills":[],"languages":[{"language":"","level":""}],"leadership":[{"title":"","organization":"","dates":"","description":""}],"interests":"","additional_information":""}`;
+{"personal":{"name":"","email":"","phone":"","location":"","nationality":"","date_of_birth":"","marital_status":"","linkedin":"","linkedin_url":"","website":"","github":"","portfolio":""},"section_order":[],"summary":"","experience":[{"title":"","company":"","dates":"","description":""}],"education":[{"degree":"","institution":"","dates":"","gpa":"","courses":"","awards":"","details":""}],"certifications":[{"name":"","institution":"","dates":"","details":""}],"skills":[],"languages":[{"language":"","level":""}],"leadership":[{"title":"","organization":"","dates":"","description":""}],"publications":[{"citation":"","year":""}],"conferences":[{"title":"","location":"","dates":"","description":""}],"references":[{"name":"","title":"","organization":"","phone":"","email":""}],"research_interests":"","interests":"","additional_information":"","custom_sections":[{"heading":"","content":""}]}`;
 
     let messageContent: Anthropic.MessageParam['content'];
 
@@ -153,7 +207,7 @@ JSON structure:
     }
 
     const response = await client.messages.create({
-      model: 'claude-haiku-4-5-20251001',
+      model: 'claude-sonnet-4-6',
       max_tokens: 16384,
       messages: [{ role: 'user', content: messageContent }],
     });

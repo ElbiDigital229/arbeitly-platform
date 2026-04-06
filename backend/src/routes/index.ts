@@ -1,4 +1,6 @@
 import { Router } from 'express';
+import { authenticate } from '../middleware/auth.middleware.js';
+import { activityService } from '../services/activity.service.js';
 import authRoutes from './auth.routes.js';
 import profileRoutes from './profile.routes.js';
 import cvRoutes from './cv.routes.js';
@@ -24,6 +26,12 @@ router.use('/plans', planRoutes);
 router.use('/payments', paymentRoutes);
 router.use('/jobs', jobDiscoveryRoutes);
 router.use('/faq', faqRoutes);
+
+// Activity feed
+router.get('/activity', authenticate, async (req, res) => {
+  const items = await activityService.getByUser(req.user!.id);
+  res.json({ success: true, data: items });
+});
 
 // Health check
 router.get('/health', async (_req, res) => {

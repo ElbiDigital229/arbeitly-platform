@@ -27,7 +27,7 @@
           @click="navigate"
           :class="[
             'w-full flex items-center gap-2 px-2 py-2 rounded-md text-sm transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring',
-            item.pro ? 'opacity-50 cursor-not-allowed' : '',
+            item.pro && !auth.user?.plan ? 'opacity-50 cursor-not-allowed' : '',
             isActive
               ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium'
               : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
@@ -37,7 +37,7 @@
           <template v-if="!collapsed">
             <span class="truncate flex-1">{{ item.label }}</span>
             <span
-              v-if="item.pro"
+              v-if="item.pro && !auth.user?.plan"
               class="text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0 bg-primary/15 text-primary"
             >PRO</span>
           </template>
@@ -88,7 +88,6 @@ const navItems: { to: string; icon: string; label: string; pro?: boolean }[] = [
   { to: '/candidate/cv', icon: 'mdi-file-document-outline', label: 'CV' },
   { to: '/candidate/files', icon: 'mdi-folder-outline', label: 'Files' },
   { to: '/candidate/faq', icon: 'mdi-help-circle-outline', label: 'FAQ', pro: true },
-  { to: '/candidate/onboarding', icon: 'mdi-clipboard-check-outline', label: 'Onboarding', pro: true },
 ];
 
 function handleLogout() {

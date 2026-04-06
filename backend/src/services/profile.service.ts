@@ -1,5 +1,6 @@
 import { profileRepository } from '../repositories/profile.repository.js';
 import { HttpError } from '../errors/HttpError.js';
+import { activityService } from './activity.service.js';
 import type { UpdateProfileDtoType } from '../dtos/profile.dto.js';
 
 export const profileService = {
@@ -16,6 +17,8 @@ export const profileService = {
     if (!profile) {
       throw HttpError.notFound('Profile not found');
     }
-    return profileRepository.update(userId, dto);
+    const updated = await profileRepository.update(userId, dto);
+    activityService.log(userId, 'profile', 'Updated profile');
+    return updated;
   },
 };

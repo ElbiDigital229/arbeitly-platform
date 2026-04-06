@@ -96,7 +96,12 @@ async function handlePurchase() {
   try {
     await subscriptionStore.purchasePlan(plan.value.id);
     await auth.fetchMe();
-    router.push('/candidate/applications');
+    // Redirect to onboarding if not completed, otherwise applications
+    if (!auth.user?.profile?.onboardingCompleted) {
+      router.push('/candidate/onboarding');
+    } else {
+      router.push('/candidate/applications');
+    }
   } catch (e: any) {
     error.value = e?.response?.data?.error || 'Purchase failed. Please try again.';
   } finally {

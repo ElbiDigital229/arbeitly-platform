@@ -106,7 +106,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
+import api from '../../services/api';
+import { useAdminStore } from '../../stores/admin';
+
+const store = useAdminStore();
 
 interface Transaction { id: string; date: string; candidateName: string; plan: string; amount: number; method: string; status: string; notes?: string; }
 
@@ -115,6 +119,23 @@ const search = ref('');
 const statusFilter = ref('all');
 const showAdd = ref(false);
 const form = ref({ candidateName: '', plan: '', amount: 0, method: 'stripe', status: 'paid', date: new Date().toISOString().split('T')[0], notes: '' });
+
+onMounted(async () => {
+  try {
+    const { data } = await api.get('/admin/transactions', { headers: store.getAuthHeaders() });
+    const raw = data.data || [];
+    transactions.value = raw.map((t: any) => ({
+      id: t.id,
+      date: t.createdAt,
+      candidateName: [t.user?.profile?.firstName, t.user?.profile?.lastName].filter(Boolean).join(' ') || t.user?.email || 'Unknown',
+      plan: t.plan?.name || '—',
+      amount: t.amount,
+      method: t.method,
+      status: t.status,
+      notes: t.notes,
+    }));
+  } catch (err) { console.error(err); }
+});
 
 const filtered = computed(() => transactions.value.filter(t => {
   if (statusFilter.value !== 'all' && t.status !== statusFilter.value) return false;

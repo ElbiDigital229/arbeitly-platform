@@ -1,6 +1,7 @@
 import { prisma } from '../config/prisma.js';
 import { profileRepository } from '../repositories/profile.repository.js';
 import { coverLetterRepository } from '../repositories/cover-letter.repository.js';
+import { activityService } from './activity.service.js';
 import type { OnboardingDtoType } from '../dtos/onboarding.dto.js';
 
 export const onboardingService = {
@@ -45,6 +46,7 @@ export const onboardingService = {
       await prisma.cV.update({ where: { id: cvs[0].id }, data: { isBase: true } });
     }
 
+    activityService.log(userId, 'onboarding', 'Completed onboarding');
     return profile;
   },
 };

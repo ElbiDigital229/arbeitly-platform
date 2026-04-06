@@ -515,7 +515,7 @@ async function handleSave() {
 
   if (editingId.value) {
     try {
-      const { data } = await api.put(`/api/applications/${editingId.value}`, payload);
+      const { data } = await api.put(`/applications/${editingId.value}`, payload);
       const idx = apps.value.findIndex(a => a.id === editingId.value);
       if (idx >= 0) apps.value[idx] = mapFromApi(data.data);
     } catch (err) {
@@ -544,7 +544,7 @@ async function handleSave() {
 
 async function handleDelete(id: string) {
   try {
-    await api.delete(`/api/applications/${id}`);
+    await api.delete(`/applications/${id}`);
     apps.value = apps.value.filter(a => a.id !== id);
   } catch (err) {
     console.error('Failed to delete application:', err);
@@ -638,7 +638,7 @@ async function handleStatusChange(id: string, status: AppStatus) {
   const prev = app.status;
   app.status = status; // optimistic update
   try {
-    await api.put(`/api/applications/${id}`, { status });
+    await api.put(`/applications/${id}`, { status });
   } catch (err) {
     app.status = prev; // revert on failure
     console.error('Failed to update status:', err);

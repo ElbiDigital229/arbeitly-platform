@@ -77,11 +77,13 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       const { data } = await api.get('/auth/me');
       user.value = data.data;
-      // Sync locale from profile preference
-      const lang = data.data?.profile?.preferredLanguage;
-      if (lang === 'de' || lang === 'en') {
-        const { setLocale } = useLocale();
-        setLocale(lang);
+      // Only sync locale from profile if user hasn't chosen one locally
+      if (!localStorage.getItem('arbeitly_locale')) {
+        const lang = data.data?.profile?.preferredLanguage;
+        if (lang === 'de' || lang === 'en') {
+          const { setLocale } = useLocale();
+          setLocale(lang);
+        }
       }
     } catch {
       clearAuth();

@@ -1,5 +1,6 @@
 import { prisma } from '../config/prisma.js';
 import { HttpError } from '../errors/HttpError.js';
+import { activityService } from './activity.service.js';
 import { comparePassword, hashPassword } from '../utils/hash.js';
 import { signToken } from '../utils/jwt.js';
 import { planRepository } from '../repositories/plan.repository.js';
@@ -15,6 +16,7 @@ export const adminService = {
     const valid = await comparePassword(password, user.password);
     if (!valid) throw HttpError.unauthorized('Invalid email or password');
     const token = signToken({ id: user.id, email: user.email, role: user.role });
+    activityService.log(user.id, 'account', 'Signed in', 'Admin portal');
     return { token, user: { id: user.id, email: user.email, role: user.role, createdAt: user.createdAt } };
   },
 
@@ -47,7 +49,7 @@ export const adminService = {
           role: true,
           createdAt: true,
           updatedAt: true,
-          profile: true,
+          profile: { include: { plan: true } },
           assignedEmployee: { select: { id: true, email: true } },
           _count: { select: { applications: true, cvs: true } },
         },
@@ -221,6 +223,28 @@ export const adminService = {
       jobsAdded,
       recentApplications: apps.slice(0, 20),
     };
+  },
+
+  // ── Audit / Activity ──
+  async getAuditLog(limit = 100) {
+    return prisma.activityLog.findMany({
+      include: {
+        user: { select: { id: true, email: true, role: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    });
+  },
+
+  // ── Transactions ──
+  async getTransactions() {
+    return prisma.transaction.findMany({
+      include: {
+        user: { select: { id: true, email: true, profile: { select: { firstName: true, lastName: true } } } },
+        plan: { select: { name: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
   },
 
   // ── Admin profile ──

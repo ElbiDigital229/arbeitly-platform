@@ -3,6 +3,7 @@ import { profileRepository } from '../repositories/profile.repository.js';
 import { hashPassword, comparePassword } from '../utils/hash.js';
 import { signToken } from '../utils/jwt.js';
 import { HttpError } from '../errors/HttpError.js';
+import { activityService } from './activity.service.js';
 import type { RegisterDtoType, LoginDtoType } from '../dtos/auth.dto.js';
 
 export const authService = {
@@ -24,6 +25,7 @@ export const authService = {
 
     const token = signToken({ id: user.id, email: user.email, role: user.role });
     const fullUser = await userRepository.findByIdWithProfile(user.id);
+    activityService.log(user.id, 'account', 'Registered account', dto.email);
     return { token, user: { id: fullUser!.id, email: fullUser!.email, role: fullUser!.role, createdAt: fullUser!.createdAt, profile: fullUser!.profile } };
   },
 
@@ -38,8 +40,13 @@ export const authService = {
       throw HttpError.unauthorized('Invalid email or password');
     }
 
+    if (user.role !== 'CANDIDATE') {
+      throw HttpError.forbidden('Please use the correct login portal for your account type');
+    }
+
     const token = signToken({ id: user.id, email: user.email, role: user.role });
     const fullUser = await userRepository.findByIdWithProfile(user.id);
+    activityService.log(user.id, 'account', 'Signed in');
     return { token, user: { id: fullUser!.id, email: fullUser!.email, role: fullUser!.role, createdAt: fullUser!.createdAt, profile: fullUser!.profile } };
   },
 
@@ -74,6 +81,7 @@ export const authService = {
 
     const hashed = await hashPassword(newPassword);
     await userRepository.update(userId, { password: hashed });
+    activityService.log(userId, 'account', 'Changed password');
     return { message: 'Password updated successfully' };
   },
 };

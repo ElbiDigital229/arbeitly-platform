@@ -121,7 +121,7 @@ interface Application {
   notes: string | null;
 }
 
-const statuses = ['WISHLIST', 'APPLIED', 'PHONE_SCREEN', 'INTERVIEW', 'OFFER', 'REJECTED', 'WITHDRAWN'];
+const statuses = ['TO_APPLY', 'APPLIED', 'IN_PROGRESS', 'INTERVIEW', 'OFFER', 'ACCEPTED', 'REJECTED', 'FAILED'];
 
 const applications = ref<Application[]>([]);
 const activeFilter = ref<string | null>(null);
@@ -134,7 +134,7 @@ const form = ref({
   companyName: '',
   jobTitle: '',
   jobUrl: '',
-  status: 'WISHLIST',
+  status: 'TO_APPLY',
   appliedAt: '',
   notes: '',
 });
@@ -146,20 +146,21 @@ const filteredApplications = computed(() => {
 
 function statusColor(status: string) {
   const map: Record<string, string> = {
-    WISHLIST: 'grey',
+    TO_APPLY: 'grey',
     APPLIED: 'blue',
-    PHONE_SCREEN: 'cyan',
+    IN_PROGRESS: 'cyan',
     INTERVIEW: 'orange',
     OFFER: 'green',
+    ACCEPTED: 'teal',
     REJECTED: 'red',
-    WITHDRAWN: 'deep-purple',
+    FAILED: 'deep-purple',
   };
   return map[status] ?? 'grey';
 }
 
 function openCreateDialog() {
   editingId.value = null;
-  form.value = { companyName: '', jobTitle: '', jobUrl: '', status: 'WISHLIST', appliedAt: '', notes: '' };
+  form.value = { companyName: '', jobTitle: '', jobUrl: '', status: 'TO_APPLY', appliedAt: '', notes: '' };
   formError.value = '';
   dialog.value = true;
 }
@@ -199,7 +200,7 @@ async function handleSave() {
       jobUrl: form.value.jobUrl || undefined,
     };
     if (editingId.value) {
-      await api.put(`/api/applications/${editingId.value}`, payload);
+      await api.put(`/applications/${editingId.value}`, payload);
     } else {
       await api.post('/applications', payload);
     }
@@ -216,7 +217,7 @@ async function handleSave() {
 async function deleteApplication(id: string) {
   if (!confirm('Delete this application?')) return;
   try {
-    await api.delete(`/api/applications/${id}`);
+    await api.delete(`/applications/${id}`);
     await fetchApplications();
   } catch {
     // Silently handle

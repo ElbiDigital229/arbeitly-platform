@@ -90,6 +90,16 @@
           Don't have an account?
           <router-link to="/register" class="font-medium text-primary hover:underline">Create one</router-link>
         </p>
+
+        <!-- Dev quick login -->
+        <div class="mt-6 border-t border-border pt-4">
+          <p class="text-[10px] text-muted-foreground mb-2 uppercase tracking-wider font-medium">Dev Quick Login</p>
+          <div class="space-y-2">
+            <button @click="email = 'test@test.com'; password = 'TestPass123!'; handleLogin()" class="w-full h-9 rounded-lg text-xs font-medium border border-border text-foreground hover:bg-secondary/60 transition-colors flex items-center justify-center gap-2">
+              <span class="mdi mdi-flash text-yellow-400" /> Sign in as Candidate
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   </div>

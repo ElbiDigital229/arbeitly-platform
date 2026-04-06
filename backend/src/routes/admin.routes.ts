@@ -27,6 +27,8 @@ router.get('/candidates/:id/applications', adminController.getCandidateApplicati
 router.get('/employees', adminController.getEmployees);
 router.post('/employees', adminController.createEmployee);
 router.delete('/employees/:id', adminController.deleteEmployee);
+router.get('/audit-log', adminController.getAuditLog);
+router.get('/transactions', adminController.getTransactions);
 router.put('/change-password', adminController.changePassword);
 router.get('/plans', adminController.getPlans);
 router.post('/plans', validate(CreatePlanDto), adminController.createPlan);

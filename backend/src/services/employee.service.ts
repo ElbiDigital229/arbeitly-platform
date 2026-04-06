@@ -3,6 +3,7 @@ import { HttpError } from '../errors/HttpError.js';
 import { comparePassword, hashPassword } from '../utils/hash.js';
 import { signToken } from '../utils/jwt.js';
 import { faqRepository } from '../repositories/faq.repository.js';
+import { activityService } from './activity.service.js';
 
 export const employeeService = {
   async signin(email: string, password: string) {
@@ -14,6 +15,7 @@ export const employeeService = {
     if (!valid) throw HttpError.unauthorized('Invalid email or password');
 
     const token = signToken({ id: user.id, email: user.email, role: user.role });
+    activityService.log(user.id, 'account', 'Signed in', 'Employee portal');
     return { token, user: { id: user.id, email: user.email, role: user.role, createdAt: user.createdAt } };
   },
 
@@ -68,8 +70,9 @@ export const employeeService = {
     });
     if (!candidate) throw HttpError.notFound('Candidate not found or not assigned to you');
 
+    // Only return employee-added applications — candidate's self-added ones are private
     return prisma.application.findMany({
-      where: { userId: candidateId },
+      where: { userId: candidateId, source: 'platform' },
       orderBy: { createdAt: 'desc' },
     });
   },
@@ -83,7 +86,7 @@ export const employeeService = {
     });
     if (!candidate) throw HttpError.notFound('Candidate not found or not assigned to you');
 
-    return prisma.application.create({
+    const app = await prisma.application.create({
       data: {
         ...data,
         status: (data.status as any) || 'TO_APPLY',
@@ -92,6 +95,8 @@ export const employeeService = {
         user: { connect: { id: candidateId } },
       },
     });
+    activityService.log(employeeId, 'application', 'Added application for candidate', `${data.jobTitle} at ${data.companyName}`);
+    return app;
   },
 
   async updateCandidateApplication(employeeId: string, candidateId: string, appId: string, data: any) {
@@ -100,10 +105,12 @@ export const employeeService = {
     });
     if (!candidate) throw HttpError.notFound('Candidate not found or not assigned to you');
 
-    const app = await prisma.application.findFirst({ where: { id: appId, userId: candidateId } });
-    if (!app) throw HttpError.notFound('Application not found');
+    const existing = await prisma.application.findFirst({ where: { id: appId, userId: candidateId } });
+    if (!existing) throw HttpError.notFound('Application not found');
 
-    return prisma.application.update({ where: { id: appId }, data });
+    const updated = await prisma.application.update({ where: { id: appId }, data });
+    activityService.log(employeeId, 'application', 'Updated candidate application', `${existing.jobTitle} at ${existing.companyName}`);
+    return updated;
   },
 
   async deleteCandidateApplication(employeeId: string, candidateId: string, appId: string) {
@@ -112,6 +119,8 @@ export const employeeService = {
     });
     if (!candidate) throw HttpError.notFound('Candidate not found or not assigned to you');
 
+    const app = await prisma.application.findFirst({ where: { id: appId } });
+    activityService.log(employeeId, 'application', 'Deleted candidate application', app ? `${app.jobTitle} at ${app.companyName}` : appId);
     return prisma.application.delete({ where: { id: appId } });
   },
 
@@ -207,7 +216,9 @@ export const employeeService = {
   },
 
   async updateProfile(employeeId: string, data: { email?: string }) {
-    return prisma.user.update({ where: { id: employeeId }, data });
+    const updated = await prisma.user.update({ where: { id: employeeId }, data });
+    activityService.log(employeeId, 'profile', 'Updated profile');
+    return updated;
   },
 
   async changePassword(employeeId: string, currentPassword: string, newPassword: string) {
@@ -216,6 +227,7 @@ export const employeeService = {
     const valid = await comparePassword(currentPassword, user.password);
     if (!valid) throw HttpError.unauthorized('Current password is incorrect');
     const hashed = await hashPassword(newPassword);
+    activityService.log(employeeId, 'account', 'Changed password');
     return prisma.user.update({ where: { id: employeeId }, data: { password: hashed } });
   },
 
@@ -227,13 +239,15 @@ export const employeeService = {
 
   async createFaqItem(employeeId: string, candidateId: string, data: { question: string; answer: string; category?: string }) {
     await this.verifyAssignment(employeeId, candidateId);
-    return faqRepository.create({
+    const faq = await faqRepository.create({
       question: data.question,
       answer: data.answer,
       category: data.category,
       candidate: { connect: { id: candidateId } },
       employee: { connect: { id: employeeId } },
     });
+    activityService.log(employeeId, 'faq', 'Created FAQ item', data.question);
+    return faq;
   },
 
   async updateFaqItem(employeeId: string, candidateId: string, faqId: string, data: any) {

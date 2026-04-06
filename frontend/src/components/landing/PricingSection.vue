@@ -47,7 +47,7 @@
           </div>
 
           <router-link
-            :to="plan.free ? '/register?plan=free' : `/register?plan=${plan.id}`"
+            :to="planLink(plan)"
             class="mt-5 w-full h-10 rounded-full text-sm font-semibold text-center flex items-center justify-center transition-colors"
             :class="plan.popular
               ? 'bg-primary text-primary-foreground hover:opacity-90'
@@ -89,6 +89,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue';
 import axios from 'axios';
+import { useAuthStore } from '../../stores/auth';
 
 interface Feature { text: string; included: boolean; }
 interface PlanDisplay {
@@ -114,7 +115,13 @@ const freePlan: PlanDisplay = {
   ],
 };
 
+const auth = useAuthStore();
 const allPlans = computed(() => [freePlan, ...dynamicPlans.value]);
+
+function planLink(plan: PlanDisplay): string {
+  if (plan.free) return auth.isAuthenticated ? '/candidate/applications' : '/register?plan=free';
+  return auth.isAuthenticated ? `/checkout?plan=${plan.id}` : `/register?plan=${plan.id}`;
+}
 const gridColsClass = computed(() => {
   const count = allPlans.value.length;
   if (count <= 2) return 'md:grid-cols-2';

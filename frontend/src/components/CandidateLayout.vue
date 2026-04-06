@@ -26,7 +26,7 @@
             @click="navigate"
             class="w-full flex items-center gap-2 px-2 py-2 rounded-md text-sm transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
             :class="[
-              item.pro ? 'opacity-50 cursor-not-allowed' : '',
+              item.pro && !auth.user?.plan ? 'opacity-50 cursor-not-allowed' : '',
               isActive ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium' : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
             ]"
           >
@@ -34,7 +34,7 @@
             <template v-if="!collapsed">
               <span class="truncate flex-1">{{ item.label }}</span>
               <span
-                v-if="item.pro"
+                v-if="item.pro && !auth.user?.plan"
                 class="text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0 bg-primary/15 text-primary"
               >PRO</span>
             </template>
@@ -126,9 +126,7 @@
             <span class="mdi mdi-creation text-sm" />
             {{ t('nav.upgrade') }}
           </router-link>
-          <button @click="toggleLocale" class="h-7 px-2 rounded-md text-xs font-bold hover:bg-secondary/50 text-muted-foreground border border-border">
-            {{ locale === 'de' ? 'DE' : 'EN' }}
-          </button>
+          <!-- locale toggle hidden — EN only for now -->
           <button class="h-8 w-8 rounded flex items-center justify-center hover:bg-secondary/50 text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
             <span class="mdi mdi-help-circle-outline text-base" />
           </button>
@@ -166,18 +164,13 @@ const notificationCount = ref(0);
 const auth = useAuthStore();
 const route = useRoute();
 const router = useRouter();
-const { locale, t, setLocale } = useLocale();
-
-function toggleLocale() {
-  setLocale(locale.value === 'de' ? 'en' : 'de');
-}
+const { t } = useLocale();
 
 const portalItems = computed(() => [
   { to: '/candidate/applications', icon: 'mdi-view-column-outline', label: t('nav.applications') },
   { to: '/candidate/cv', icon: 'mdi-file-document-outline', label: t('nav.cv') },
   { to: '/candidate/files', icon: 'mdi-folder-outline', label: t('nav.files') },
   { to: '/candidate/faq', icon: 'mdi-help-circle-outline', label: t('nav.faq'), pro: true },
-  { to: '/candidate/onboarding', icon: 'mdi-clipboard-check-outline', label: t('nav.onboarding'), pro: true },
 ]);
 
 const accountItems = computed(() => [

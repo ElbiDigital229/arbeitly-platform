@@ -45,6 +45,8 @@ model User {
   queueItemsAsEmployee  CandidateJobQueue[] @relation("QueueEmployee")
   faqItemsAsCandidate   FaqItem[]           @relation("FaqCandidate")
   faqItemsAsEmployee    FaqItem[]           @relation("FaqEmployee")
+  transactions          Transaction[]
+  activityLogs          ActivityLog[]
 }
 
 model Plan {
@@ -61,7 +63,8 @@ model Plan {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  candidates CandidateProfile[]
+  candidates   CandidateProfile[]
+  transactions Transaction[]
 }
 
 model CandidateProfile {
@@ -229,4 +232,36 @@ model FaqItem {
   employee  User @relation("FaqEmployee", fields: [employeeId], references: [id])
 
   @@index([candidateId])
+}
+
+model Transaction {
+  id        String   @id @default(cuid())
+  userId    String
+  planId    String?
+  amount    Float
+  currency  String   @default("EUR")
+  method    String   @default("platform")
+  status    String   @default("paid")
+  notes     String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan Plan? @relation(fields: [planId], references: [id])
+
+  @@index([userId])
+}
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  userId    String
+  action    String
+  category  String
+  detail    String?
+  meta      Json?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
 }

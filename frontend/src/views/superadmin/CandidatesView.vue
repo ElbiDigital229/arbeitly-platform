@@ -21,8 +21,10 @@
           <tr class="border-b border-border text-xs text-muted-foreground">
             <th class="text-left px-4 py-3 font-medium">Name</th>
             <th class="text-left px-4 py-3 font-medium">Email</th>
+            <th class="text-center px-4 py-3 font-medium">Plan</th>
             <th class="text-center px-4 py-3 font-medium">Apps</th>
             <th class="text-center px-4 py-3 font-medium">CVs</th>
+            <th class="text-center px-4 py-3 font-medium">Onboarding</th>
             <th class="text-left px-4 py-3 font-medium">Assigned To</th>
             <th class="text-left px-4 py-3 font-medium">Joined</th>
             <th class="px-4 py-3 font-medium">Assign</th>
@@ -32,8 +34,16 @@
           <tr v-for="c in filtered" :key="c.id" class="border-b border-border/50 last:border-0 hover:bg-secondary/20 transition-colors">
             <td class="px-4 py-3 font-medium text-foreground">{{ candidateName(c) }}</td>
             <td class="px-4 py-3 text-muted-foreground">{{ c.email }}</td>
+            <td class="px-4 py-3 text-center">
+              <span v-if="c.profile?.plan" class="px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-500/10 text-green-400">{{ c.profile.plan.name }}</span>
+              <span v-else class="px-2 py-0.5 rounded-full text-[10px] font-medium bg-secondary text-muted-foreground">Free</span>
+            </td>
             <td class="px-4 py-3 text-center tabular-nums text-foreground">{{ c._count?.applications ?? 0 }}</td>
             <td class="px-4 py-3 text-center tabular-nums text-foreground">{{ c._count?.cvs ?? 0 }}</td>
+            <td class="px-4 py-3 text-center">
+              <span v-if="c.profile?.onboardingCompleted" class="mdi mdi-check-circle text-green-400" />
+              <span v-else class="mdi mdi-clock-outline text-muted-foreground" />
+            </td>
             <td class="px-4 py-3 text-muted-foreground text-xs">{{ c.assignedEmployee?.email || '—' }}</td>
             <td class="px-4 py-3 text-muted-foreground text-xs">{{ formatDate(c.createdAt) }}</td>
             <td class="px-4 py-3">
@@ -85,7 +95,11 @@ async function assignEmployee(candidateId: string, employeeId: string) {
       c.assignedEmployeeId = employeeId || null;
       c.assignedEmployee = employeeId ? employees.value.find((e: any) => e.id === employeeId) : null;
     }
-  } catch (err) { console.error(err); }
+  } catch (err: any) {
+    const msg = err?.response?.data?.error || 'Assignment failed';
+    alert(msg);
+    console.error(err);
+  }
 }
 
 onMounted(async () => {
