@@ -149,7 +149,7 @@ async function handleRegister() {
   try {
     await auth.register(email.value, password.value, confirmPassword.value);
     if (isFree.value) {
-      router.push('/candidate/applications');
+      router.push('/onboarding/simple');
     } else {
       router.push({ path: '/checkout', query: { plan: selectedPlan.value.id } });
     }

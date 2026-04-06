@@ -39,12 +39,12 @@ export const applicationService = {
       });
       results.push(app);
     }
+    activityService.log(userId, 'application', 'Imported applications (CSV)', `${results.length} applications`);
     return results;
   },
 
   async getApplications(userId: string) {
-    // Only return self-added applications — employee-added ones (source: 'platform') are hidden from candidate
-    return applicationRepository.findSelfAddedByUserId(userId);
+    return applicationRepository.findAllByUserId(userId);
   },
 
   async getApplicationById(userId: string, applicationId: string) {

@@ -23,7 +23,7 @@ router.use('/onboarding', onboardingRoutes);
 router.use('/employee', employeeRoutes);
 router.use('/admin', adminRoutes);
 router.use('/plans', planRoutes);
-router.use('/payments', paymentRoutes);
+router.use('/payment', paymentRoutes);
 router.use('/jobs', jobDiscoveryRoutes);
 router.use('/faq', faqRoutes);
 

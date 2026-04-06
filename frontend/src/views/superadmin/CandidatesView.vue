@@ -1,5 +1,5 @@
 <template>
-  <div class="max-w-5xl space-y-6">
+  <div class="space-y-6">
     <div class="flex items-start justify-between flex-wrap gap-3">
       <div>
         <h1 class="font-display text-2xl font-bold text-foreground">Candidates</h1>
@@ -47,7 +47,7 @@
             <td class="px-4 py-3 text-muted-foreground text-xs">{{ c.assignedEmployee?.email || '—' }}</td>
             <td class="px-4 py-3 text-muted-foreground text-xs">{{ formatDate(c.createdAt) }}</td>
             <td class="px-4 py-3">
-              <select :value="c.assignedEmployeeId || ''" @change="assignEmployee(c.id, ($event.target as HTMLSelectElement).value)"
+              <select :value="c.assignedEmployee?.id || ''" @change="assignEmployee(c.id, ($event.target as HTMLSelectElement).value)"
                 class="h-7 rounded-md bg-secondary border-none text-[11px] text-foreground px-1.5 outline-none w-full max-w-[140px]">
                 <option value="">Unassigned</option>
                 <option v-for="e in employees" :key="e.id" :value="e.id">{{ e.email }}</option>

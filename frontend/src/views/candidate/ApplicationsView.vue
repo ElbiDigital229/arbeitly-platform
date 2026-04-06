@@ -68,6 +68,22 @@
         <option value="all">All Statuses</option>
         <option v-for="s in allStatuses" :key="s" :value="s">{{ statusLabels[s] }}</option>
       </select>
+      <!-- Source filter (paid only) -->
+      <div v-if="isPaid" class="flex items-center rounded-lg border border-border bg-secondary p-0.5 gap-0.5">
+        <button @click="sourceFilter = 'all'"
+          :class="['px-3 h-7 rounded-md text-xs font-medium transition-colors', sourceFilter === 'all' ? 'bg-card text-card-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground']">
+          All
+        </button>
+        <button @click="sourceFilter = 'self'"
+          :class="['px-3 h-7 rounded-md text-xs font-medium transition-colors', sourceFilter === 'self' ? 'bg-card text-card-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground']">
+          Self
+        </button>
+        <button @click="sourceFilter = 'platform'"
+          :class="['px-3 h-7 rounded-md text-xs font-medium transition-colors flex items-center gap-1', sourceFilter === 'platform' ? 'bg-teal-500/20 text-teal-400 shadow-sm' : 'text-muted-foreground hover:text-foreground']">
+          <span class="h-1.5 w-1.5 rounded-full bg-teal-400 inline-block" />
+          Arbeitly
+        </button>
+      </div>
     </div>
 
     <!-- Loading -->
@@ -93,6 +109,9 @@
               class="rounded-full px-2.5 py-0.5 text-[10px] font-medium shrink-0"
               :style="statusStyle(app.status)"
             >{{ statusLabels[app.status] }}</span>
+            <span v-if="(app as any).source === 'platform'" class="flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium bg-teal-500/10 text-teal-400 border-teal-400/20 shrink-0">
+              <span class="mdi mdi-creation text-xs" /> Arbeitly
+            </span>
           </div>
           <div class="flex items-center gap-3 mt-1 text-xs flex-wrap text-muted-foreground">
             <span class="font-medium">{{ app.company }}</span>
@@ -157,6 +176,9 @@
                 <div class="flex-1 min-w-0">
                   <p class="text-sm font-medium leading-snug text-foreground">{{ app.job }}</p>
                   <p class="text-xs mt-0.5 text-muted-foreground">{{ app.company }}</p>
+                  <span v-if="(app as any).source === 'platform'" class="inline-flex items-center gap-0.5 mt-1 rounded-full border px-1.5 py-0.5 text-[9px] font-medium bg-teal-500/10 text-teal-400 border-teal-400/20">
+                    <span class="mdi mdi-creation text-[9px]" /> Arbeitly
+                  </span>
                 </div>
                 <button @click="openEdit(app)" class="h-5 w-5 rounded flex items-center justify-center hover:bg-white/5 shrink-0 focus-visible:ring-2 focus-visible:ring-primary">
                   <span class="mdi mdi-pencil-outline text-xs text-muted-foreground" />
@@ -321,6 +343,9 @@
 <script setup lang="ts">
 import { ref, computed, reactive, onMounted } from 'vue';
 import api from '../../services/api';
+import { useAuthStore } from '../../stores/auth';
+
+const auth = useAuthStore();
 
 export type AppStatus = 'TO_APPLY' | 'APPLIED' | 'IN_PROGRESS' | 'INTERVIEW' | 'OFFER' | 'ACCEPTED' | 'REJECTED' | 'FAILED';
 
@@ -405,6 +430,7 @@ function mapFromApi(a: any): BoardApp {
     jobDescription: a.jobDescription || undefined,
     cvUsed: a.cvUsed || undefined,
     references: a.references || undefined,
+    source: a.source || 'self',
   };
 }
 
@@ -414,6 +440,8 @@ const loading = ref(true);
 
 const search = ref('');
 const statusFilter = ref('all');
+const sourceFilter = ref<'all' | 'self' | 'platform'>('all');
+const isPaid = computed(() => !!auth.user?.plan);
 const viewMode = ref<'list' | 'board'>('board');
 const dialogOpen = ref(false);
 const editingId = ref<string | null>(null);
@@ -449,7 +477,8 @@ const filtered = computed(() => {
   return apps.value.filter(a => {
     const matchSearch = a.job.toLowerCase().includes(q) || a.company.toLowerCase().includes(q);
     const matchStatus = statusFilter.value === 'all' || a.status === statusFilter.value;
-    return matchSearch && matchStatus;
+    const matchSource = sourceFilter.value === 'all' || (a as any).source === sourceFilter.value;
+    return matchSearch && matchStatus && matchSource;
   });
 });
 

@@ -35,6 +35,24 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
+      path: '/candidate/onboarding',
+      name: 'Onboarding',
+      component: () => import('../views/candidate/OnboardingView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/checkout/success',
+      name: 'CheckoutSuccess',
+      component: () => import('../views/CheckoutSuccessView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/onboarding/simple',
+      name: 'SimpleOnboarding',
+      component: () => import('../views/SimpleOnboardingView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
       path: '/candidate/forgot-password',
       name: 'ForgotPassword',
       component: () => import('../views/ForgotPasswordView.vue'),
@@ -76,11 +94,6 @@ const router = createRouter({
           path: 'faq',
           name: 'FAQ',
           component: () => import('../views/candidate/FaqView.vue'),
-        },
-        {
-          path: 'onboarding',
-          name: 'Onboarding',
-          component: () => import('../views/candidate/OnboardingView.vue'),
         },
       ],
     },

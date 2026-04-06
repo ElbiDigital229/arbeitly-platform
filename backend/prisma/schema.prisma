@@ -46,6 +46,7 @@ model User {
   faqItemsAsCandidate   FaqItem[]           @relation("FaqCandidate")
   faqItemsAsEmployee    FaqItem[]           @relation("FaqEmployee")
   transactions          Transaction[]
+  pendingCheckouts      PendingCheckout[]
   activityLogs          ActivityLog[]
 }
 
@@ -63,8 +64,9 @@ model Plan {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  candidates   CandidateProfile[]
-  transactions Transaction[]
+  candidates       CandidateProfile[]
+  transactions     Transaction[]
+  pendingCheckouts PendingCheckout[]
 }
 
 model CandidateProfile {
@@ -85,7 +87,9 @@ model CandidateProfile {
   baseCoverLetter      String?
   dummyEmail           String?
   dummyPassword        String?
-  preferredLanguage    String   @default("de")
+  preferredLanguage    String   @default("en")
+  marketingData        Json?
+  onboardingData       Json?
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 
@@ -235,20 +239,35 @@ model FaqItem {
 }
 
 model Transaction {
-  id        String   @id @default(cuid())
-  userId    String
-  planId    String?
-  amount    Float
-  currency  String   @default("EUR")
-  method    String   @default("platform")
-  status    String   @default("paid")
-  notes     String?
-  createdAt DateTime @default(now())
+  id              String   @id @default(cuid())
+  userId          String
+  planId          String?
+  amount          Float
+  currency        String   @default("EUR")
+  method          String   @default("platform")
+  status          String   @default("paid")
+  stripeSessionId String?
+  notes           String?
+  createdAt       DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   plan Plan? @relation(fields: [planId], references: [id])
 
   @@index([userId])
+}
+
+model PendingCheckout {
+  id              String   @id @default(cuid())
+  userId          String
+  planId          String
+  stripeSessionId String   @unique
+  status          String   @default("pending")
+  createdAt       DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan Plan @relation(fields: [planId], references: [id])
+
+  @@index([stripeSessionId])
 }
 
 model ActivityLog {

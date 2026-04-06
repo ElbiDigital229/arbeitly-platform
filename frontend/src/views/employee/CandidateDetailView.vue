@@ -8,7 +8,7 @@
     <router-link to="/employee/candidates" class="text-primary hover:underline text-sm mt-2 inline-block">← Back</router-link>
   </div>
 
-  <div v-else class="max-w-5xl space-y-6">
+  <div v-else class="space-y-6">
     <!-- Header -->
     <div class="flex items-center gap-4">
       <router-link to="/employee/candidates" class="h-8 w-8 rounded-lg flex items-center justify-center border border-border hover:bg-secondary/50 text-muted-foreground">

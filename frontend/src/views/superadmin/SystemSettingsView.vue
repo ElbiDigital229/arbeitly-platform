@@ -1,5 +1,5 @@
 <template>
-  <div class="max-w-2xl space-y-6">
+  <div class="space-y-6">
     <div class="flex items-start justify-between">
       <div>
         <h1 class="font-display text-2xl font-bold text-foreground">System Settings</h1>

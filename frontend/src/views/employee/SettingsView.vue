@@ -1,5 +1,5 @@
 <template>
-  <div class="max-w-2xl space-y-6">
+  <div class="space-y-6">
     <div>
       <h1 class="font-display text-2xl font-bold text-foreground">Settings</h1>
       <p class="text-sm mt-0.5 text-muted-foreground">Manage your employee account.</p>

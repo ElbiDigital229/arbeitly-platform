@@ -1,5 +1,5 @@
 <template>
-  <div class="max-w-5xl space-y-6">
+  <div class="space-y-6">
     <div class="flex items-start justify-between flex-wrap gap-3">
       <div>
         <h1 class="font-display text-2xl font-bold text-foreground">My Candidates</h1>

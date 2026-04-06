@@ -132,27 +132,16 @@
         </div>
       </div>
       <!-- Onboarding status -->
-      <div class="rounded-xl border border-border bg-card">
+      <div v-if="!onboardingCompleted" class="rounded-xl border border-border bg-card">
         <div class="px-6 py-4 border-b border-border">
           <h3 class="font-display text-base font-semibold text-foreground flex items-center gap-2">
-            <span class="mdi" :class="onboardingCompleted ? 'mdi-check-circle text-green-500' : 'mdi-clock-outline text-yellow-500'" />
-            Onboarding Profile
+            <span class="mdi mdi-clock-outline text-yellow-500" /> Onboarding Profile
           </h3>
         </div>
         <div class="px-6 py-4">
-          <div v-if="onboardingCompleted" class="flex items-center justify-between">
-            <p class="text-sm text-muted-foreground">Your profile is complete.</p>
-            <router-link
-              to="/candidate/onboarding"
-              class="inline-flex items-center h-8 px-3 rounded-lg text-xs font-medium border border-border text-foreground hover:bg-secondary/60 transition-colors"
-            >View Answers</router-link>
-          </div>
-          <div v-else class="flex items-center justify-between">
+          <div class="flex items-center justify-between">
             <p class="text-sm text-muted-foreground">Complete your onboarding to help us find the best jobs for you.</p>
-            <router-link
-              to="/candidate/onboarding"
-              class="inline-flex items-center h-8 px-3 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-            >Complete Now</router-link>
+            <router-link to="/candidate/onboarding" class="inline-flex items-center h-8 px-3 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">Complete Now</router-link>
           </div>
         </div>
       </div>
@@ -282,6 +271,123 @@
       </div>
     </template>
 
+    <!-- ── Onboarding tab ── -->
+    <template v-else-if="activeTab === 'onboarding'">
+      <template v-if="!onboardingCompleted">
+        <div class="rounded-xl border border-border bg-card p-6 text-center space-y-3">
+          <span class="mdi mdi-clipboard-check-outline text-4xl text-muted-foreground/20" />
+          <p class="text-sm font-medium text-foreground">Onboarding not completed yet</p>
+          <p class="text-xs text-muted-foreground">Complete onboarding to unlock your full profile.</p>
+          <router-link to="/candidate/onboarding" class="inline-flex items-center h-9 px-4 rounded-full text-sm font-medium bg-primary text-primary-foreground hover:opacity-90 mt-2">Complete Now</router-link>
+        </div>
+      </template>
+
+      <template v-else>
+        <!-- Application Account -->
+        <div v-if="prof?.dummyEmail" class="rounded-xl border border-border bg-card">
+          <div class="px-6 py-4 border-b border-border">
+            <h3 class="font-display text-base font-semibold text-foreground flex items-center gap-2">
+              <span class="mdi mdi-key-outline" /> Application Account
+            </h3>
+          </div>
+          <div class="px-6 py-4 space-y-3">
+            <p class="text-xs text-muted-foreground">Your advisor uses these credentials to apply on your behalf.</p>
+            <div class="rounded-lg border border-border bg-secondary/40 p-3 space-y-2">
+              <div class="flex items-center justify-between text-sm">
+                <span class="text-muted-foreground">Email</span>
+                <span class="font-mono text-xs font-medium text-foreground">{{ prof.dummyEmail }}</span>
+              </div>
+              <div v-if="prof.dummyPassword" class="flex items-center justify-between text-sm">
+                <span class="text-muted-foreground">Password</span>
+                <span class="font-mono text-xs font-medium text-foreground">{{ prof.dummyPassword }}</span>
+              </div>
+              <div class="flex items-center justify-between text-sm">
+                <span class="text-muted-foreground">Preferred Language</span>
+                <span class="font-medium text-foreground">{{ prof.preferredLanguage === 'de' ? 'Deutsch' : 'English' }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Signup Info -->
+        <div v-if="prof?.marketingData" class="rounded-xl border border-border bg-card">
+          <div class="px-6 py-4 border-b border-border">
+            <h3 class="font-display text-base font-semibold text-foreground flex items-center gap-2">
+              <span class="mdi mdi-information-outline" /> Signup Info
+            </h3>
+          </div>
+          <div class="px-6 py-4 space-y-2">
+            <div v-if="prof.marketingData.industry" class="flex items-center justify-between text-sm">
+              <span class="text-muted-foreground">Industry</span>
+              <span class="font-medium text-foreground">{{ prof.marketingData.industry }}</span>
+            </div>
+            <div v-if="prof.marketingData.targetCountry" class="flex items-center justify-between text-sm">
+              <span class="text-muted-foreground">Target Country</span>
+              <span class="font-medium text-foreground">{{ prof.marketingData.targetCountry }}</span>
+            </div>
+            <div v-if="prof.marketingData.howHeard" class="flex items-center justify-between text-sm">
+              <span class="text-muted-foreground">How you heard about us</span>
+              <span class="font-medium text-foreground">{{ prof.marketingData.howHeard }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- All onboarding answers -->
+        <div v-for="section in onboardingSections" :key="section.title" class="rounded-xl border border-border bg-card">
+          <div class="px-6 py-4 border-b border-border">
+            <h3 class="text-xs font-semibold text-primary uppercase tracking-widest">{{ section.title }}</h3>
+          </div>
+          <div class="px-6 py-4">
+            <div class="grid grid-cols-2 gap-x-6 gap-y-3">
+              <div v-for="field in section.fields" :key="field.label">
+                <p class="text-xs text-muted-foreground">{{ field.label }}</p>
+                <p class="text-sm font-medium text-foreground">{{ field.value || '—' }}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Uploaded Documents -->
+        <div class="rounded-xl border border-border bg-card">
+          <div class="px-6 py-4 border-b border-border">
+            <h3 class="font-display text-base font-semibold text-foreground flex items-center gap-2">
+              <span class="mdi mdi-file-document-outline" /> Uploaded Documents
+            </h3>
+          </div>
+          <div class="px-6 py-4">
+            <div v-if="onboardingDocs.length === 0" class="text-sm text-muted-foreground text-center py-4">No documents uploaded during onboarding.</div>
+            <div v-else class="space-y-2">
+              <div v-for="doc in onboardingDocs" :key="doc.id" class="flex items-center gap-3 p-3 rounded-lg bg-secondary/40">
+                <span class="mdi mdi-file-document-outline text-lg text-primary shrink-0" />
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm font-medium text-foreground truncate">{{ doc.title }}</p>
+                  <p class="text-[10px] text-muted-foreground">{{ doc.style ? doc.style + ' · ' : '' }}{{ formatDate(doc.createdAt) }}</p>
+                </div>
+                <router-link :to="`/candidate/cv?edit=${doc.id}`" class="text-xs text-primary hover:underline shrink-0">Open</router-link>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Base Cover Letter -->
+        <div v-if="prof?.baseCoverLetter" class="rounded-xl border border-border bg-card">
+          <div class="px-6 py-4 border-b border-border">
+            <h3 class="font-display text-base font-semibold text-foreground flex items-center gap-2">
+              <span class="mdi mdi-text-box-outline" /> Base Cover Letter
+            </h3>
+          </div>
+          <div class="px-6 py-4">
+            <p class="text-sm text-foreground whitespace-pre-wrap font-mono">{{ prof.baseCoverLetter }}</p>
+          </div>
+        </div>
+
+        <div v-if="!prof?.onboardingData && onboardingDocs.length === 0 && !prof?.baseCoverLetter" class="rounded-xl border border-border bg-card p-6 text-center">
+          <span class="mdi mdi-clipboard-check-outline text-4xl text-muted-foreground/20" />
+          <p class="text-sm text-muted-foreground mt-2">No onboarding data found.</p>
+        </div>
+      </template>
+    </template>
+
     <!-- ── Activity tab ── -->
     <template v-else-if="activeTab === 'activity'">
       <div class="rounded-xl border border-border bg-card">
@@ -328,12 +434,13 @@ import { useAuthStore } from '../../stores/auth';
 
 const auth = useAuthStore();
 
-type TabId = 'profile' | 'settings' | 'activity';
+type TabId = 'profile' | 'settings' | 'onboarding' | 'activity';
 const activeTab = ref<TabId>('profile');
 
 const tabs = [
   { id: 'profile' as TabId, label: 'Profile' },
   { id: 'settings' as TabId, label: 'Settings' },
+  { id: 'onboarding' as TabId, label: 'Onboarding' },
   { id: 'activity' as TabId, label: 'Activity' },
 ];
 
@@ -358,6 +465,66 @@ const memberSince = computed(() => {
 
 // ── Onboarding ──
 const onboardingCompleted = computed(() => auth.user?.profile?.onboardingCompleted ?? false);
+
+// Fetch uploaded CVs for onboarding tab
+const onboardingDocs = ref<any[]>([]);
+watch(activeTab, async (tab) => {
+  if (tab !== 'onboarding' || onboardingDocs.value.length > 0) return;
+  try {
+    const { data } = await api.get('/cvs');
+    onboardingDocs.value = (data.data || []).slice(0, 10);
+  } catch { /* ignore */ }
+});
+
+const prof = computed(() => auth.user?.profile as any);
+
+const onboardingSections = computed(() => {
+  const o = prof.value?.onboardingData;
+  if (!o) return [];
+  return [
+    { title: 'Personal Details', fields: [
+      { label: 'Application Email', value: o.applicationEmail },
+      { label: 'Phone', value: o.phone },
+      { label: 'LinkedIn', value: o.linkedin },
+      { label: 'Date of Birth', value: o.dob },
+      { label: 'Place of Birth', value: o.placeOfBirth },
+      { label: 'Address', value: o.address },
+    ]},
+    { title: 'Professional Background', fields: [
+      { label: 'Job Title', value: o.currentJobTitle },
+      { label: 'Employer', value: o.currentEmployer },
+      { label: 'Field', value: o.currentField },
+      { label: 'Years of Experience', value: o.yearsExperience },
+      { label: 'Current Salary', value: o.currentSalary },
+      { label: 'Worked in Germany', value: o.workedInGermany },
+      { label: 'Notice Period', value: o.noticePeriod },
+      { label: 'Highest Study', value: o.highestStudy },
+      { label: 'Degree', value: o.degreeTitle },
+      { label: 'University', value: o.university },
+    ]},
+    { title: 'Skills & Career Goals', fields: [
+      { label: 'Top Skills', value: o.topSkills },
+      { label: 'Certifications', value: o.certifications },
+      { label: 'Career Goal', value: o.careerGoal },
+      { label: 'Target Roles', value: o.targetRoles },
+      { label: 'Target Industries', value: o.targetIndustries },
+      { label: 'Employment Type', value: o.employmentType },
+      { label: 'Preferred Location', value: o.preferredLocation },
+      { label: 'Open to Relocation', value: o.openToRelocation },
+      { label: 'Salary Range', value: o.preferredSalary },
+      { label: 'Target Companies', value: o.targetCompanies },
+      { label: 'Career Change', value: o.openToCareerChange },
+    ]},
+    { title: 'Final Details', fields: [
+      { label: 'German Level', value: o.germanLevel },
+      { label: 'Driving License', value: o.drivingLicense },
+      { label: 'Transition Motivation', value: o.transitionMotivation },
+      { label: 'Training Needs', value: o.trainingNeeds },
+      { label: 'How Heard', value: o.howHeard },
+      { label: 'Additional Info', value: o.additionalInfo },
+    ]},
+  ].filter(s => s.fields.some(f => f.value));
+});
 
 // ── CV usage ──
 const cvLimit = computed(() => auth.user?.usage?.cvCreationLimit ?? 10);
@@ -443,7 +610,7 @@ const activityItems = ref<ActivityItem[]>([]);
 const loadingActivity = ref(false);
 
 const formatDate = (iso: string) =>
-  new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
 const CATEGORY_ICONS: Record<string, string> = {
   account: 'mdi-account-outline',

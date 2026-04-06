@@ -1,5 +1,5 @@
 <template>
-  <div class="max-w-5xl space-y-6">
+  <div class="space-y-6">
     <div>
       <h1 class="font-display text-2xl font-bold text-foreground">Platform Overview</h1>
       <p class="text-sm mt-0.5 text-muted-foreground">Key metrics across the platform.</p>

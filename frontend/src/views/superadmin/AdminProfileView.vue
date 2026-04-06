@@ -1,5 +1,5 @@
 <template>
-  <div class="max-w-lg space-y-6">
+  <div class="space-y-6">
     <div>
       <h1 class="font-display text-2xl font-bold text-foreground">My Profile</h1>
       <p class="text-sm mt-0.5 text-muted-foreground">Admin account management.</p>

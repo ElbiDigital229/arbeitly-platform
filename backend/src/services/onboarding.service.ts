@@ -6,6 +6,24 @@ import type { OnboardingDtoType } from '../dtos/onboarding.dto.js';
 
 export const onboardingService = {
   async completeOnboarding(userId: string, dto: OnboardingDtoType) {
+    // Save the full onboarding answers as JSON
+    const onboardingData: Record<string, any> = {};
+    const onboardingKeys = [
+      'applicationEmail', 'linkedin', 'dob', 'placeOfBirth', 'address',
+      'currentJobTitle', 'currentEmployer', 'currentField', 'yearsExperience',
+      'currentSalary', 'workedInGermany', 'noticePeriod', 'highestStudy',
+      'degreeTitle', 'university', 'universityLocation',
+      'topSkills', 'certifications', 'careerGoal', 'targetRoles',
+      'targetIndustries', 'employmentType', 'preferredLocation',
+      'openToRelocation', 'preferredSalary', 'targetCompanies', 'openToCareerChange',
+      'germanLevel', 'drivingLicense', 'transitionMotivation', 'trainingNeeds',
+      'howHeard', 'additionalInfo',
+    ];
+    for (const key of onboardingKeys) {
+      const val = (dto as any)[key];
+      if (val !== undefined && val !== '') onboardingData[key] = val;
+    }
+
     const updateData: Record<string, any> = {
       firstName: dto.firstName,
       lastName: dto.lastName,
@@ -14,6 +32,7 @@ export const onboardingService = {
       bio: dto.bio,
       baseCoverLetter: dto.baseCoverLetter,
       onboardingCompleted: true,
+      onboardingData,
     };
     if (dto.dummyEmail !== undefined) updateData.dummyEmail = dto.dummyEmail;
     if (dto.dummyPassword !== undefined) updateData.dummyPassword = dto.dummyPassword;

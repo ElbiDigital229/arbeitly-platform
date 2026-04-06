@@ -1,9 +1,14 @@
 <template>
   <div class="min-h-screen flex items-center justify-center bg-background p-6">
     <div class="w-full max-w-md animate-fade-in">
-      <router-link to="/" class="flex items-center gap-2 mb-8">
-        <img src="../assets/logo.png" alt="Arbeitly" class="h-8" />
-      </router-link>
+      <div class="flex items-center justify-between mb-8">
+        <router-link to="/" class="flex items-center gap-2">
+          <img src="../assets/logo.png" alt="Arbeitly" class="h-8" />
+        </router-link>
+        <router-link to="/pricing" class="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
+          <span class="mdi mdi-arrow-left text-sm" /> Back
+        </router-link>
+      </div>
 
       <div v-if="loadingPlan" class="flex items-center justify-center py-16 text-muted-foreground">
         <span class="mdi mdi-loading mdi-spin text-2xl" />
@@ -39,12 +44,14 @@
           :disabled="purchasing"
           class="mt-6 w-full h-11 rounded-full text-sm font-semibold transition-opacity disabled:opacity-50 bg-primary text-primary-foreground hover:opacity-90"
         >
-          {{ purchasing ? 'Processing...' : `Pay €${plan.price} Now` }}
+          {{ purchasing ? 'Redirecting to payment...' : `Pay €${plan.price} Now` }}
         </button>
 
-        <p class="mt-3 text-center text-xs text-muted-foreground">
-          This is a mock checkout. No real payment will be processed.
-        </p>
+        <div class="mt-4 flex items-center justify-center gap-3 text-muted-foreground">
+          <span class="mdi mdi-lock-outline text-sm" />
+          <span class="text-xs">Secure payment via Stripe</span>
+          <span class="mdi mdi-credit-card-outline text-sm" />
+        </div>
       </template>
 
       <div v-else class="text-center py-16">
@@ -59,13 +66,11 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { useSubscriptionStore } from '../stores/subscription';
 import { useAuthStore } from '../stores/auth';
-import axios from 'axios';
+import api from '../services/api';
 
 const route = useRoute();
 const router = useRouter();
-const subscriptionStore = useSubscriptionStore();
 const auth = useAuthStore();
 
 interface PlanData {
@@ -83,7 +88,7 @@ onMounted(async () => {
   const planId = route.query.plan as string;
   if (!planId) { loadingPlan.value = false; return; }
   try {
-    const { data } = await axios.get('/api/plans');
+    const { data } = await api.get('/plans');
     plan.value = (data.data || []).find((p: any) => p.id === planId) ?? null;
   } catch { /* plan not found */ }
   finally { loadingPlan.value = false; }
@@ -94,9 +99,15 @@ async function handlePurchase() {
   purchasing.value = true;
   error.value = '';
   try {
-    await subscriptionStore.purchasePlan(plan.value.id);
+    // Try Stripe Checkout first
+    const { data } = await api.post('/payment/create-checkout', { planId: plan.value.id });
+    if (data.data?.url) {
+      window.location.href = data.data.url;
+      return;
+    }
+    // Fallback to mock purchase if Stripe not configured
+    await api.post('/payment/purchase', { planId: plan.value.id });
     await auth.fetchMe();
-    // Redirect to onboarding if not completed, otherwise applications
     if (!auth.user?.profile?.onboardingCompleted) {
       router.push('/candidate/onboarding');
     } else {
