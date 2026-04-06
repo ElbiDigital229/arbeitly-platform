@@ -1,0 +1,10 @@
+CONTEXT.md
+CLAUDE.md
+readme.md
+
+**/node_modules/
+**/dist/
+**/.env
+**/.env.*
+*.log
+.DS_Store

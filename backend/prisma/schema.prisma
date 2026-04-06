@@ -1,0 +1,286 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CANDIDATE
+  EMPLOYEE
+  EMPLOYER
+  ADMIN
+}
+
+enum ApplicationStatus {
+  TO_APPLY
+  APPLIED
+  IN_PROGRESS
+  INTERVIEW
+  OFFER
+  ACCEPTED
+  REJECTED
+  FAILED
+}
+
+model User {
+  id                 String   @id @default(cuid())
+  email              String   @unique
+  password           String
+  role               Role     @default(CANDIDATE)
+  assignedEmployeeId String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  profile            CandidateProfile?
+  cvs                CV[]
+  coverLetters       CoverLetter[]
+  applications       Application[]
+  assignedEmployee   User?    @relation("EmployeeCandidates", fields: [assignedEmployeeId], references: [id])
+  assignedCandidates User[]   @relation("EmployeeCandidates")
+  addedJobs          JobDiscovery[]
+  queueItemsAsCandidate CandidateJobQueue[] @relation("QueueCandidate")
+  queueItemsAsEmployee  CandidateJobQueue[] @relation("QueueEmployee")
+  faqItemsAsCandidate   FaqItem[]           @relation("FaqCandidate")
+  faqItemsAsEmployee    FaqItem[]           @relation("FaqEmployee")
+  transactions          Transaction[]
+  pendingCheckouts      PendingCheckout[]
+  activityLogs          ActivityLog[]
+}
+
+model Plan {
+  id               String   @id @default(cuid())
+  name             String
+  description      String?
+  price            Float
+  currency         String   @default("EUR")
+  applicationLimit Int
+  features         Json     @default("[]")
+  isActive         Boolean  @default(true)
+  isPopular        Boolean  @default(false)
+  sortOrder        Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  candidates       CandidateProfile[]
+  transactions     Transaction[]
+  pendingCheckouts PendingCheckout[]
+}
+
+model CandidateProfile {
+  id                   String   @id @default(cuid())
+  userId               String   @unique
+  firstName            String
+  lastName             String
+  phone                String?
+  location             String?
+  bio                  String?
+  linkedinUrl          String?
+  portfolioUrl         String?
+  onboardingCompleted  Boolean  @default(false)
+  planId               String?
+  cvCreationLimit      Int      @default(10)
+  cvCreationsUsed      Int      @default(0)
+  applicationLimitUsed Int      @default(0)
+  baseCoverLetter      String?
+  dummyEmail           String?
+  dummyPassword        String?
+  preferredLanguage    String   @default("en")
+  marketingData        Json?
+  onboardingData       Json?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan Plan? @relation(fields: [planId], references: [id])
+}
+
+model CV {
+  id              String   @id @default(cuid())
+  userId          String
+  title           String
+  originalFileKey String?
+  parsedData      Json?
+  editorData      Json?
+  htmlContent     String?
+  style           String?
+  language        String?
+  isBase          Boolean  @default(false)
+  parentId        String?
+  parentType      String?
+  generatedForJobId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent CV?  @relation("CVVersions", fields: [parentId], references: [id])
+  children CV[] @relation("CVVersions")
+  generatedForJob JobDiscovery? @relation(fields: [generatedForJobId], references: [id])
+  queueItems CandidateJobQueue[]
+
+  @@index([userId])
+}
+
+model CoverLetter {
+  id         String   @id @default(cuid())
+  userId     String
+  title      String
+  content    String
+  editorData Json?
+  language   String?
+  isBase     Boolean  @default(false)
+  parentId   String?
+  parentType String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent   CoverLetter? @relation("CLVersions", fields: [parentId], references: [id])
+  children CoverLetter[] @relation("CLVersions")
+
+  @@index([userId])
+}
+
+model Application {
+  id             String            @id @default(cuid())
+  userId         String
+  companyName    String
+  jobTitle       String
+  jobUrl         String?
+  status         ApplicationStatus @default(TO_APPLY)
+  appliedAt      DateTime?
+  notes          String?
+  salary         String?
+  contactPerson  String?
+  nextAction     String?
+  jobDescription String?
+  cvUsed         String?
+  references     String?
+  addedById      String?
+  source         String?           @default("self")
+  screenshotKey  String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model AdminPrompt {
+  id        String   @id @default(cuid())
+  type      String
+  name      String
+  prompt    String
+  isActive  Boolean  @default(true)
+  version   Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model JobDiscovery {
+  id           String   @id @default(cuid())
+  title        String
+  company      String
+  url          String?
+  description  String?
+  location     String?
+  salary       String?
+  requirements String?
+  source       String   @default("manual")
+  addedById    String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  addedBy    User                @relation(fields: [addedById], references: [id])
+  queueItems CandidateJobQueue[]
+  generatedCvs CV[]
+
+  @@index([addedById])
+}
+
+model CandidateJobQueue {
+  id             String   @id @default(cuid())
+  candidateId    String
+  jobId          String
+  employeeId     String
+  relevanceScore Float?
+  status         String   @default("PENDING")
+  generatedCvId  String?
+  createdAt      DateTime @default(now())
+
+  candidate   User          @relation("QueueCandidate", fields: [candidateId], references: [id])
+  job         JobDiscovery  @relation(fields: [jobId], references: [id])
+  employee    User          @relation("QueueEmployee", fields: [employeeId], references: [id])
+  generatedCv CV?           @relation(fields: [generatedCvId], references: [id])
+
+  @@index([candidateId])
+  @@index([jobId])
+}
+
+model FaqItem {
+  id           String   @id @default(cuid())
+  candidateId  String
+  employeeId   String
+  question     String
+  answer       String
+  category     String?
+  isApproved   Boolean  @default(false)
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  candidate User @relation("FaqCandidate", fields: [candidateId], references: [id], onDelete: Cascade)
+  employee  User @relation("FaqEmployee", fields: [employeeId], references: [id])
+
+  @@index([candidateId])
+}
+
+model Transaction {
+  id              String   @id @default(cuid())
+  userId          String
+  planId          String?
+  amount          Float
+  currency        String   @default("EUR")
+  method          String   @default("platform")
+  status          String   @default("paid")
+  stripeSessionId String?
+  notes           String?
+  createdAt       DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan Plan? @relation(fields: [planId], references: [id])
+
+  @@index([userId])
+}
+
+model PendingCheckout {
+  id              String   @id @default(cuid())
+  userId          String
+  planId          String
+  stripeSessionId String   @unique
+  status          String   @default("pending")
+  createdAt       DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan Plan @relation(fields: [planId], references: [id])
+
+  @@index([stripeSessionId])
+}
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  userId    String
+  action    String
+  category  String
+  detail    String?
+  meta      Json?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+}

@@ -1,0 +1,4 @@
+localhost {
+  reverse_proxy /api/* localhost:4000
+  reverse_proxy /* localhost:2222
+}

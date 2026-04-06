@@ -1,0 +1,85 @@
+import { applicationRepository } from '../repositories/application.repository.js';
+import { profileRepository } from '../repositories/profile.repository.js';
+import { HttpError } from '../errors/HttpError.js';
+import { activityService } from './activity.service.js';
+import type { CreateApplicationDtoType, UpdateApplicationDtoType } from '../dtos/application.dto.js';
+
+async function checkAndIncrementAppQuota(userId: string) {
+  const profile = await profileRepository.findByUserId(userId);
+  if (!profile || !profile.planId) return; // free users — no plan-based limit
+  const plan = await (await import('../config/prisma.js')).prisma.plan.findUnique({ where: { id: profile.planId } });
+  if (!plan) return;
+  if (plan.applicationLimit > 0 && profile.applicationLimitUsed >= plan.applicationLimit) {
+    throw HttpError.forbidden(`Application limit reached (${plan.applicationLimit}). Upgrade your plan to add more applications.`);
+  }
+  await (await import('../config/prisma.js')).prisma.candidateProfile.update({
+    where: { userId },
+    data: { applicationLimitUsed: { increment: 1 } },
+  });
+}
+
+export const applicationService = {
+  async createApplication(userId: string, dto: CreateApplicationDtoType) {
+    await checkAndIncrementAppQuota(userId);
+    const app = await applicationRepository.create({
+      ...dto,
+      user: { connect: { id: userId } },
+    });
+    activityService.log(userId, 'application', 'Created application', `${dto.jobTitle} at ${dto.companyName}`);
+    return app;
+  },
+
+  async bulkCreateApplications(userId: string, dtos: CreateApplicationDtoType[]) {
+    const results = [];
+    for (const dto of dtos) {
+      await checkAndIncrementAppQuota(userId);
+      const app = await applicationRepository.create({
+        ...dto,
+        user: { connect: { id: userId } },
+      });
+      results.push(app);
+    }
+    activityService.log(userId, 'application', 'Imported applications (CSV)', `${results.length} applications`);
+    return results;
+  },
+
+  async getApplications(userId: string) {
+    return applicationRepository.findAllByUserId(userId);
+  },
+
+  async getApplicationById(userId: string, applicationId: string) {
+    const application = await applicationRepository.findById(applicationId);
+    if (!application) {
+      throw HttpError.notFound('Application not found');
+    }
+    if (application.userId !== userId) {
+      throw HttpError.forbidden('You do not have access to this application');
+    }
+    return application;
+  },
+
+  async updateApplication(userId: string, applicationId: string, dto: UpdateApplicationDtoType) {
+    const application = await applicationRepository.findById(applicationId);
+    if (!application) {
+      throw HttpError.notFound('Application not found');
+    }
+    if (application.userId !== userId) {
+      throw HttpError.forbidden('You do not have access to this application');
+    }
+    const updated = await applicationRepository.update(applicationId, dto);
+    activityService.log(userId, 'application', 'Updated application', `${application.jobTitle} at ${application.companyName}`);
+    return updated;
+  },
+
+  async deleteApplication(userId: string, applicationId: string) {
+    const application = await applicationRepository.findById(applicationId);
+    if (!application) {
+      throw HttpError.notFound('Application not found');
+    }
+    if (application.userId !== userId) {
+      throw HttpError.forbidden('You do not have access to this application');
+    }
+    activityService.log(userId, 'application', 'Deleted application', `${application.jobTitle} at ${application.companyName}`);
+    return applicationRepository.delete(applicationId);
+  },
+};
