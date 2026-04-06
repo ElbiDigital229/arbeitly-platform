@@ -110,13 +110,65 @@
 
     <!-- ═══════════ CV Tab ═══════════ -->
     <template v-if="activeTab === 'cv'">
-      <div v-if="cvs.length === 0" class="rounded-xl border border-border bg-card p-12 text-center">
-        <span class="mdi mdi-file-document-outline text-5xl text-muted-foreground/20" />
-        <p class="text-sm text-muted-foreground mt-3">No CVs uploaded yet.</p>
+      <!-- Landing: Upload / Create + Saved CVs list -->
+      <div v-if="!selectedCvId || cvs.length === 0" class="space-y-6">
+        <div>
+          <h2 class="text-2xl font-bold font-display text-foreground">Candidate's CV</h2>
+          <p class="text-sm mt-1 text-muted-foreground">Build, upload, and export CV in three professional templates.</p>
+        </div>
+
+        <!-- Entry cards -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <button @click="$router.push(`/employee/candidates/${candidateId}/cv-builder`)"
+            class="group rounded-xl border-2 border-dashed border-border bg-card p-6 text-left transition-all hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+            <div class="h-10 w-10 rounded-xl flex items-center justify-center mb-3 bg-primary/10 border border-primary/20">
+              <span class="mdi mdi-upload text-xl text-primary" />
+            </div>
+            <p class="text-sm font-semibold text-foreground">Upload Existing CV</p>
+            <p class="text-xs mt-1 text-muted-foreground">Upload a PDF or Word file. We'll extract info and fill the editor automatically.</p>
+          </button>
+          <button @click="$router.push(`/employee/candidates/${candidateId}/cv-builder?mode=create`)"
+            class="group rounded-xl border-2 border-dashed border-border bg-card p-6 text-left transition-all hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+            <div class="h-10 w-10 rounded-xl flex items-center justify-center mb-3 bg-secondary border border-border">
+              <span class="mdi mdi-plus text-xl text-muted-foreground" />
+            </div>
+            <p class="text-sm font-semibold text-foreground">Create from Scratch</p>
+            <p class="text-xs mt-1 text-muted-foreground">Use our multi-step wizard to build a professional CV with live preview.</p>
+          </button>
+        </div>
+
+        <!-- Saved CVs -->
+        <div v-if="cvs.length > 0" class="space-y-3">
+          <h2 class="text-sm font-semibold text-foreground">Saved CVs</h2>
+          <div v-for="cv in cvs" :key="cv.id"
+            class="group flex items-center gap-3 px-4 py-3 rounded-xl border border-border bg-card transition-colors hover:border-primary/30">
+            <span class="mdi mdi-file-document-outline text-lg shrink-0 text-primary" />
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 flex-wrap">
+                <p class="text-sm font-medium text-foreground">{{ cv.title }}</p>
+                <span v-if="cv.style" class="text-[10px] px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">{{ cv.style }}</span>
+                <span v-if="cv.language" class="text-[10px] px-2 py-0.5 rounded-full"
+                  :class="cv.language === 'DE' ? 'bg-warning/10 text-warning' : 'bg-primary/10 text-primary'">{{ cv.language }}</span>
+              </div>
+              <p class="text-xs mt-0.5 text-muted-foreground">{{ formatDate(cv.createdAt) }}</p>
+            </div>
+            <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button @click="viewCv(cv)" class="h-7 px-2.5 rounded-lg flex items-center gap-1 text-xs font-medium bg-secondary text-foreground hover:bg-secondary/80">
+                <span class="mdi mdi-eye-outline text-sm" /> View
+              </button>
+              <button @click="$router.push(`/employee/candidates/${candidateId}/cv-builder?edit=${cv.id}`)" class="h-7 px-2.5 rounded-lg flex items-center gap-1 text-xs font-medium bg-secondary text-foreground hover:bg-secondary/80">
+                <span class="mdi mdi-pencil-outline text-sm" /> Edit
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
-      <template v-else>
+      <template v-else-if="selectedCvId">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-2">
+            <button @click="selectedCvId = ''" class="h-9 px-3 rounded-lg text-xs font-medium bg-secondary text-foreground hover:bg-secondary/80 flex items-center gap-1">
+              <span class="mdi mdi-arrow-left text-sm" /> Back
+            </button>
             <select v-model="selectedCvId" class="h-9 rounded-lg bg-secondary border-none text-sm text-foreground px-3 outline-none">
               <option v-for="cv in cvs" :key="cv.id" :value="cv.id">
                 {{ cv.title || cv.originalName || 'CV' }}{{ cv.isBase ? ' (Base)' : '' }}{{ cv.parentType ? ` — ${cv.parentType}` : '' }}
@@ -188,10 +240,11 @@
         <!-- Custom prompt -->
         <div class="rounded-xl border border-border bg-card p-4 space-y-3">
           <h4 class="text-sm font-semibold text-foreground">Custom Enhancement</h4>
-          <div class="flex gap-2">
-            <input v-model="cvCustomPrompt" class="input-field flex-1" placeholder="e.g. Make it more concise, focus on leadership..." />
-            <button @click="enhanceCvCustom" :disabled="!cvCustomPrompt || enhancingCv" class="h-9 px-4 rounded-lg text-sm font-medium bg-secondary text-foreground hover:bg-secondary/80 disabled:opacity-50">
-              Run
+          <p class="text-xs text-muted-foreground">Add a custom prompt to guide the AI when enhancing this CV.</p>
+          <textarea v-model="cvCustomPrompt" rows="4" class="input-field w-full resize-none text-sm min-h-[90px]" placeholder="e.g. Emphasise leadership experience, tailor for a senior marketing role, make the summary more impactful..." />
+          <div class="flex justify-end">
+            <button @click="enhanceCvCustom" :disabled="!cvCustomPrompt || enhancingCv" class="h-9 px-5 rounded-full text-sm font-medium bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">
+              {{ enhancingCv ? 'Enhancing...' : 'Enhance with Custom Prompt' }}
             </button>
           </div>
         </div>
@@ -248,10 +301,11 @@
 
         <div class="rounded-xl border border-border bg-card p-4 space-y-3">
           <h4 class="text-sm font-semibold text-foreground">Custom Enhancement</h4>
-          <div class="flex gap-2">
-            <input v-model="clCustomPrompt" class="input-field flex-1" placeholder="e.g. Make it more formal, emphasize teamwork..." />
-            <button @click="enhanceClCustom" :disabled="!clCustomPrompt || enhancingCl" class="h-9 px-4 rounded-lg text-sm font-medium bg-secondary text-foreground hover:bg-secondary/80 disabled:opacity-50">
-              Run
+          <p class="text-xs text-muted-foreground">Add a custom prompt to guide the AI when enhancing this cover letter.</p>
+          <textarea v-model="clCustomPrompt" rows="4" class="input-field w-full resize-none text-sm min-h-[90px]" placeholder="e.g. Make it more formal, emphasize teamwork, highlight relevant certifications..." />
+          <div class="flex justify-end">
+            <button @click="enhanceClCustom" :disabled="!clCustomPrompt || enhancingCl" class="h-9 px-5 rounded-full text-sm font-medium bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">
+              {{ enhancingCl ? 'Enhancing...' : 'Enhance with Custom Prompt' }}
             </button>
           </div>
         </div>
@@ -512,6 +566,18 @@ const kanbanCols = computed(() => {
 
 const headers = computed(() => store.getAuthHeaders());
 
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+async function viewCv(cv: any) {
+  selectedCvId.value = cv.id;
+  try {
+    const { data: tree } = await api.get(`/employee/candidates/${candidateId}/cvs/${cv.id}/tree`, { headers: headers.value });
+    cvVersions.value = tree.data || [];
+  } catch { /* ignore */ }
+}
+
 function statusClass(s: string) {
   const map: Record<string, string> = {
     TO_APPLY: 'bg-muted text-muted-foreground',
@@ -567,13 +633,7 @@ watch(activeTab, async (tab) => {
     try {
       const { data } = await api.get(`/employee/candidates/${candidateId}/cvs`, { headers: headers.value });
       cvs.value = data.data || [];
-      if (cvs.value.length > 0) {
-        const base = cvs.value.find((c: any) => c.isBase) || cvs.value[0];
-        selectedCvId.value = base.id;
-        // Load version tree
-        const { data: tree } = await api.get(`/employee/candidates/${candidateId}/cvs/${base.id}/tree`, { headers: headers.value });
-        cvVersions.value = tree.data || [];
-      }
+      // Don't auto-select — show landing with Upload/Create + Saved CVs list
     } catch { /* no cvs */ }
   }
   if (tab === 'faq' && faqItems.value.length === 0) {

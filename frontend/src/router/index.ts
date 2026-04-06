@@ -112,6 +112,7 @@ const router = createRouter({
         { path: 'dashboard', name: 'EmployeeDashboard', component: () => import('../views/employee/DashboardView.vue') },
         { path: 'candidates', name: 'EmployeeCandidates', component: () => import('../views/employee/CandidatesView.vue') },
         { path: 'candidates/:id', name: 'EmployeeCandidateDetail', component: () => import('../views/employee/CandidateDetailView.vue') },
+        { path: 'candidates/:id/cv-builder', name: 'EmployeeCVBuilder', component: () => import('../views/employee/EmployeeCVBuilderView.vue') },
         { path: 'job-discovery', name: 'EmployeeJobDiscovery', component: () => import('../views/employee/JobDiscoveryView.vue') },
         { path: 'settings', name: 'EmployeeSettings', component: () => import('../views/employee/SettingsView.vue') },
       ],

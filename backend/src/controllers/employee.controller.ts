@@ -56,6 +56,64 @@ export const employeeController = {
     try { success(res, await employeeService.getCandidateCVs(req.user!.id, req.params.id)); } catch (err) { next(err); }
   }) as RequestHandler,
 
+  uploadCandidateCV: (async (req, res, next) => {
+    try {
+      await employeeService.verifyAssignment(req.user!.id, req.params.id);
+      if (!req.file) return next(HttpError.badRequest('No file uploaded'));
+      const { cvService } = await import('../services/cv.service.js');
+      const cv = await cvService.uploadAndParseCV(req.params.id, req.body.title || req.file.originalname?.replace(/\.[^.]+$/, '') || 'CV', req.file);
+      success(res, cv, 201);
+    } catch (err) { next(err); }
+  }) as RequestHandler,
+
+  createCandidateBlankCV: (async (req, res, next) => {
+    try {
+      await employeeService.verifyAssignment(req.user!.id, req.params.id);
+      const { cvService } = await import('../services/cv.service.js');
+      const cv = await cvService.createCV(req.params.id, { title: req.body.title || 'New CV', ...req.body });
+      success(res, cv, 201);
+    } catch (err) { next(err); }
+  }) as RequestHandler,
+
+  getCandidateCVById: (async (req, res, next) => {
+    try {
+      await employeeService.verifyAssignment(req.user!.id, req.params.id);
+      const { cvService } = await import('../services/cv.service.js');
+      const cv = await cvService.getCVById(req.params.id, req.params.cvId);
+      success(res, cv);
+    } catch (err) { next(err); }
+  }) as RequestHandler,
+
+  updateCandidateCV: (async (req, res, next) => {
+    try {
+      await employeeService.verifyAssignment(req.user!.id, req.params.id);
+      const { cvService } = await import('../services/cv.service.js');
+      const cv = await cvService.updateCV(req.params.id, req.params.cvId, req.body);
+      success(res, cv);
+    } catch (err) { next(err); }
+  }) as RequestHandler,
+
+  deleteCandidateCV: (async (req, res, next) => {
+    try {
+      await employeeService.verifyAssignment(req.user!.id, req.params.id);
+      const { cvService } = await import('../services/cv.service.js');
+      await cvService.deleteCV(req.params.id, req.params.cvId);
+      success(res, { message: 'Deleted' });
+    } catch (err) { next(err); }
+  }) as RequestHandler,
+
+  exportCandidateCV: (async (req, res, next) => {
+    try {
+      await employeeService.verifyAssignment(req.user!.id, req.params.id);
+      const { renderCvPdf } = await import('../services/cv-pdf-render.service.js');
+      const { contentHtml, style, filename } = req.body;
+      if (!contentHtml) return next(HttpError.badRequest('contentHtml required'));
+      const pdfBuffer = await renderCvPdf(contentHtml, style || 'modern');
+      res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="${filename || 'cv.pdf'}"`, 'Content-Length': pdfBuffer.length.toString() });
+      res.send(pdfBuffer);
+    } catch (err) { next(err); }
+  }) as RequestHandler,
+
   enhanceCandidateCV: (async (req, res, next) => {
     try {
       await employeeService.verifyAssignment(req.user!.id, req.params.id);

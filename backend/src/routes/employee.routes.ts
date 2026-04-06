@@ -1,5 +1,8 @@
 import { Router } from 'express';
+import multer from 'multer';
 import { employeeController } from '../controllers/employee.controller.js';
+
+const upload = multer({ storage: multer.memoryStorage() });
 import { authenticate } from '../middleware/auth.middleware.js';
 import { activityService } from '../services/activity.service.js';
 import { HttpError } from '../errors/HttpError.js';
@@ -31,6 +34,12 @@ router.delete('/candidates/:candidateId/applications/:appId', employeeController
 
 // CV endpoints
 router.get('/candidates/:id/cvs', employeeController.getCandidateCVs);
+router.post('/candidates/:id/cvs/upload', upload.single('file'), employeeController.uploadCandidateCV);
+router.post('/candidates/:id/cvs/create', employeeController.createCandidateBlankCV);
+router.get('/candidates/:id/cvs/:cvId', employeeController.getCandidateCVById);
+router.put('/candidates/:id/cvs/:cvId', employeeController.updateCandidateCV);
+router.delete('/candidates/:id/cvs/:cvId', employeeController.deleteCandidateCV);
+router.post('/candidates/:id/cvs/export', employeeController.exportCandidateCV);
 router.post('/candidates/:id/cvs/:cvId/enhance', employeeController.enhanceCandidateCV);
 router.post('/candidates/:id/cvs/:cvId/version', employeeController.createCVVersion);
 router.post('/candidates/:id/cvs/:cvId/variant', employeeController.createCVVariant);

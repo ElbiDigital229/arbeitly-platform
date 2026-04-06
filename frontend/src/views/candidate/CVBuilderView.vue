@@ -51,7 +51,7 @@
 
       <!-- Error actions -->
       <div v-if="extractError" class="flex justify-center gap-3">
-        <button @click="extractError = ''; step = 'landing'" class="px-4 py-2 rounded-full text-sm font-medium border border-border text-foreground hover:bg-secondary/60 transition-colors">
+        <button @click="extractError = ''; goBack()" class="px-4 py-2 rounded-full text-sm font-medium border border-border text-foreground hover:bg-secondary/60 transition-colors">
           Go Back
         </button>
         <button @click="extractError = ''; cvFileInput?.click()" class="px-4 py-2 rounded-full text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
@@ -106,7 +106,7 @@
         </button>
       </div>
       <div class="flex justify-between pt-2">
-        <button @click="step = 'landing'" class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+        <button @click="goBack()" class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
           <span class="mdi mdi-arrow-left" />Back
         </button>
       </div>
@@ -151,7 +151,7 @@
     <div class="flex flex-col border-r border-border shrink-0 w-full md:w-[480px] bg-[hsl(196,89%,10%)]">
       <!-- Toolbar -->
       <div class="flex items-center gap-2 px-4 py-2.5 border-b border-border shrink-0">
-        <button @click="step = 'landing'" class="flex items-center gap-1.5 px-2 py-1 rounded text-xs text-muted-foreground hover:bg-secondary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+        <button @click="goBack()" class="flex items-center gap-1.5 px-2 py-1 rounded text-xs text-muted-foreground hover:bg-secondary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
           <span class="mdi mdi-arrow-left text-sm" />Back
         </button>
         <div class="flex-1" />
@@ -265,12 +265,7 @@
               <span class="mdi mdi-drag-vertical text-base shrink-0 text-foreground/50 hover:text-foreground cursor-grab active:cursor-grabbing" />
               <p class="text-xs font-semibold text-muted-foreground">Summary</p>
             </div>
-            <textarea
-              v-model="editorData.summary"
-              placeholder="A short professional summary..."
-              rows="4"
-              class="input-field resize-none"
-            />
+            <RichTextEditor v-model="editorData.summary" :min-height="120" />
           </div>
 
           <!-- Experience -->
@@ -306,7 +301,7 @@
                 <input v-model="exp.company" placeholder="Company" class="input-field input-field-sm" />
                 <input v-model="exp.period" placeholder="Period (e.g. Jan 2022 – Present)" class="input-field input-field-sm col-span-2" />
               </div>
-              <textarea v-model="exp.description" placeholder="Key responsibilities..." rows="3" class="input-field resize-none" />
+              <RichTextEditor v-model="exp.description" :min-height="100" />
             </div>
           </div>
 
@@ -343,7 +338,7 @@
                 <input v-model="edu.institution" placeholder="Institution" class="input-field input-field-sm" />
                 <input v-model="edu.period" placeholder="Period (e.g. 2018 – 2022)" class="input-field input-field-sm col-span-2" />
               </div>
-              <textarea v-model="edu.details" placeholder="Details (GPA, courses, awards...)" rows="2" class="input-field resize-none" />
+              <RichTextEditor v-model="edu.details" :min-height="80" />
             </div>
           </div>
 
@@ -400,12 +395,10 @@
             </div>
             <div>
               <label class="text-xs block mb-1 text-foreground">Text</label>
-              <textarea
-                :value="getCustomSection(sectionKey)?.text || ''"
-                @input="updateCustomSection(sectionKey, 'text', ($event.target as HTMLTextAreaElement).value)"
-                placeholder="Write something..."
-                rows="4"
-                class="input-field resize-none"
+              <RichTextEditor
+                :model-value="getCustomSection(sectionKey)?.text || ''"
+                @update:model-value="updateCustomSection(sectionKey, 'text', $event)"
+                :min-height="100"
               />
             </div>
           </div>
@@ -534,8 +527,8 @@
     </div>
   </div>
 
-  <!-- LANDING -->
-  <div v-else class="p-6 max-w-4xl space-y-6">
+  <!-- LANDING (hidden when employee opens directly with initialMode) -->
+  <div v-else v-show="!props.initialMode" class="p-6 max-w-4xl space-y-6">
     <div>
       <h1 class="text-2xl font-bold font-display text-foreground">My CV</h1>
       <p class="text-sm mt-1 text-muted-foreground">Build, upload, and export your CV in three professional templates.</p>
@@ -602,10 +595,40 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, watch, nextTick, onMounted } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import api from '../../services/api';
+import { useEmployeeStore } from '../../stores/employee';
 import StepIndicator from '../../components/StepIndicator.vue';
 import TemplateMiniPreview from '../../components/TemplateMiniPreview.vue';
+import RichTextEditor from '../../components/RichTextEditor.vue';
+
+const props = defineProps<{ employeeCandidateId?: string; initialMode?: string }>();
+const employeeStore = useEmployeeStore();
+
+// When used by employee, use employee API endpoints with candidate ID
+const isEmployeeMode = computed(() => !!props.employeeCandidateId);
+const cvApiBase = computed(() => isEmployeeMode.value ? `/employee/candidates/${props.employeeCandidateId}/cvs` : '/cvs');
+const apiHeaders = computed(() => isEmployeeMode.value ? employeeStore.getAuthHeaders() : {});
+
+// Helper for CV API calls — uses employee endpoints when in employee mode
+function cvApi(method: 'get' | 'post' | 'put' | 'delete', path: string, data?: any, opts?: any) {
+  let url = path;
+  if (isEmployeeMode.value && path.startsWith('/cvs')) {
+    // Map candidate CV routes to employee CV routes
+    if (path === '/cvs' && method === 'post') {
+      url = `${cvApiBase.value}/upload`; // POST /cvs → /employee/candidates/:id/cvs/upload
+    } else if (path === '/cvs/create' && method === 'post') {
+      url = `${cvApiBase.value}/create`;
+    } else if (path === '/cvs/export' && method === 'post') {
+      url = `${cvApiBase.value}/export`;
+    } else {
+      url = path.replace('/cvs', cvApiBase.value);
+    }
+  }
+  const config = { ...opts, headers: { ...(opts?.headers || {}), ...apiHeaders.value } };
+  if (method === 'get' || method === 'delete') return api[method](url, config);
+  return api[method](url, data, config);
+}
 
 // ── Types ────────────────────────────────────────────────────────────────────
 type CvStyle = 'modern' | 'classic' | 'minimal';
@@ -769,6 +792,15 @@ function formatDate(iso: string) {
 }
 
 const route = useRoute();
+const router = useRouter();
+
+function goBack() {
+  if (isEmployeeMode.value) {
+    router.push(`/employee/candidates/${props.employeeCandidateId}`);
+  } else {
+    step.value = 'landing';
+  }
+}
 
 // ── State ─────────────────────────────────────────────────────────────────────
 const step = ref<Step>('landing');
@@ -964,7 +996,7 @@ async function onCvFileSelect(e: Event) {
     formData.append('file', file);
     formData.append('title', file.name.replace(/\.[^.]+$/, '') || 'My CV');
 
-    const { data } = await api.post('/cvs', formData);
+    const { data } = await cvApi('post', '/cvs', formData, { timeout: 120000 });
     const cv = data.data;
     const parsed = cv?.parsedData;
     // Track the backend CV id so subsequent saves update the same record
@@ -1133,7 +1165,7 @@ async function handleExportPdf() {
     const contentHtml = editorToHtml(editorData);
     const filename = `${(editorData.fullName || 'CV').replace(/[^a-z0-9_\- ]+/gi, '_')}.pdf`;
 
-    const response = await api.post('/cvs/export', {
+    const response = await cvApi('post', '/cvs/export', {
       contentHtml,
       style: editorData.style,
       filename,
@@ -1170,7 +1202,7 @@ async function handleSaveVersion() {
 
   try {
     if (editingVersionId.value) {
-      await api.put(`/cvs/${editingVersionId.value}`, {
+      await cvApi('put', `/cvs/${editingVersionId.value}`, {
         title: name,
         editorData: editorState,
         htmlContent: content,
@@ -1180,7 +1212,7 @@ async function handleSaveVersion() {
       const v = cvVersions.value.find(v => v.id === editingVersionId.value);
       if (v) { v.name = name; v.label = name; v.content = content; v.style = editorData.style; v.language = editorData.language; }
     } else {
-      const { data } = await api.post('/cvs/create', {
+      const { data } = await cvApi('post', '/cvs/create', {
         title: name,
         editorData: editorState,
         htmlContent: content,
@@ -1203,12 +1235,12 @@ async function handleSaveVersion() {
 
   saveDialogOpen.value = false;
   saveName.value = '';
-  step.value = 'landing';
+  goBack();
 }
 
 async function openCvVersion(v: CvVersion) {
   try {
-    const { data } = await api.get(`/cvs/${v.id}`);
+    const { data } = await cvApi('get', `/cvs/${v.id}`);
     const cv = data.data;
     if (cv.editorData) {
       Object.assign(editorData, {
@@ -1233,7 +1265,7 @@ async function openCvVersion(v: CvVersion) {
 
 async function deleteCvVersion(id: string) {
   try {
-    await api.delete(`/cvs/${id}`);
+    await cvApi('delete', `/cvs/${id}`);
     cvVersions.value = cvVersions.value.filter(v => v.id !== id);
   } catch (err) {
     console.error('Failed to delete CV:', err);
@@ -1242,7 +1274,7 @@ async function deleteCvVersion(id: string) {
 
 onMounted(async () => {
   try {
-    const { data } = await api.get('/cvs');
+    const { data } = await cvApi('get', '/cvs');
     cvVersions.value = (data.data || []).map((cv: any) => ({
       id: cv.id,
       name: cv.title,
@@ -1261,6 +1293,13 @@ onMounted(async () => {
   if (editId) {
     const v = cvVersions.value.find(v => v.id === editId);
     if (v) await openCvVersion(v);
+  }
+
+  // Auto-trigger upload or create based on initialMode
+  if (props.initialMode === 'upload') {
+    nextTick(() => cvFileInput.value?.click());
+  } else if (props.initialMode === 'create') {
+    startCreate();
   }
 });
 </script>
