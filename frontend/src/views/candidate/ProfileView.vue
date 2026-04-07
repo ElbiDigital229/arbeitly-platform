@@ -101,6 +101,48 @@
         </div>
       </div>
 
+      <!-- Billing History -->
+      <div class="rounded-xl border border-border bg-card">
+        <div class="px-6 py-4 border-b border-border">
+          <h3 class="font-display text-base font-semibold text-foreground flex items-center gap-2">
+            <span class="mdi mdi-receipt-text-outline" />
+            Billing History
+          </h3>
+        </div>
+        <div class="px-6 py-4">
+          <div v-if="loadingTx" class="flex items-center gap-2 text-sm text-muted-foreground">
+            <span class="mdi mdi-loading mdi-spin" /> Loading transactions...
+          </div>
+          <div v-else-if="transactions.length === 0" class="text-sm text-muted-foreground text-center py-4">
+            No transactions yet.
+          </div>
+          <div v-else class="space-y-2">
+            <div
+              v-for="tx in transactions"
+              :key="tx.id"
+              class="flex items-center justify-between p-3 rounded-lg bg-secondary/40 hover:bg-secondary/60 transition-colors"
+            >
+              <div class="flex items-center gap-3 min-w-0">
+                <span class="mdi mdi-check-circle text-base text-green-400 shrink-0" />
+                <div class="min-w-0">
+                  <p class="text-sm font-medium text-foreground truncate">{{ tx.plan?.name || 'Plan' }}</p>
+                  <p class="text-[11px] text-muted-foreground">{{ formatTxDate(tx.createdAt) }} · {{ formatMethod(tx.method) }}</p>
+                </div>
+              </div>
+              <div class="flex items-center gap-3 shrink-0">
+                <span class="font-display text-sm font-bold text-foreground tabular-nums">{{ tx.currency || '€' }}{{ tx.amount }}</span>
+                <router-link
+                  :to="`/candidate/invoice/${tx.id}`"
+                  class="inline-flex items-center gap-1 px-2.5 h-7 rounded-md text-[11px] font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                >
+                  <span class="mdi mdi-file-document-outline text-xs" /> Invoice
+                </router-link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- CV Usage -->
       <div class="rounded-xl border border-border bg-card">
         <div class="px-6 py-4 border-b border-border">
@@ -131,8 +173,8 @@
           </p>
         </div>
       </div>
-      <!-- Onboarding status -->
-      <div v-if="!onboardingCompleted" class="rounded-xl border border-border bg-card">
+      <!-- Onboarding status — only relevant for paid plans (employees only act on paid+onboarded candidates) -->
+      <div v-if="auth.user?.plan && !onboardingCompleted" class="rounded-xl border border-border bg-card">
         <div class="px-6 py-4 border-b border-border">
           <h3 class="font-display text-base font-semibold text-foreground flex items-center gap-2">
             <span class="mdi mdi-clock-outline text-yellow-500" /> Onboarding Profile
@@ -273,7 +315,15 @@
 
     <!-- ── Onboarding tab ── -->
     <template v-else-if="activeTab === 'onboarding'">
-      <template v-if="!onboardingCompleted">
+      <template v-if="!auth.user?.plan">
+        <div class="rounded-xl border border-border bg-card p-6 text-center space-y-3">
+          <span class="mdi mdi-creation text-4xl text-primary/40" />
+          <p class="text-sm font-medium text-foreground">Onboarding is for paid plans</p>
+          <p class="text-xs text-muted-foreground">Upgrade to a paid plan to be assigned a dedicated employee who applies to jobs on your behalf.</p>
+          <router-link to="/pricing" class="inline-flex items-center h-9 px-4 rounded-full text-sm font-medium bg-primary text-primary-foreground hover:opacity-90 mt-2">View Plans</router-link>
+        </div>
+      </template>
+      <template v-else-if="!onboardingCompleted">
         <div class="rounded-xl border border-border bg-card p-6 text-center space-y-3">
           <span class="mdi mdi-clipboard-check-outline text-4xl text-muted-foreground/20" />
           <p class="text-sm font-medium text-foreground">Onboarding not completed yet</p>
@@ -428,7 +478,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import api from '../../services/api';
 import { useAuthStore } from '../../stores/auth';
 
@@ -461,6 +511,38 @@ const initials = computed(() => {
 const memberSince = computed(() => {
   if (!auth.user?.createdAt) return '—';
   return new Date(auth.user.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+});
+
+// ── Billing history ──
+interface Transaction {
+  id: string;
+  amount: number;
+  currency: string | null;
+  method: string;
+  status: string;
+  createdAt: string;
+  plan?: { id: string; name: string; price: number; currency: string } | null;
+}
+const transactions = ref<Transaction[]>([]);
+const loadingTx = ref(false);
+
+const formatTxDate = (iso: string) =>
+  new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+
+const formatMethod = (m: string) => {
+  if (m === 'mock_card') return 'Test card';
+  if (m === 'stripe') return 'Stripe';
+  if (m === 'platform') return 'Platform';
+  return m;
+};
+
+onMounted(async () => {
+  loadingTx.value = true;
+  try {
+    const { data } = await api.get('/payment/transactions');
+    transactions.value = data.data || [];
+  } catch { /* ignore */ }
+  finally { loadingTx.value = false; }
 });
 
 // ── Onboarding ──

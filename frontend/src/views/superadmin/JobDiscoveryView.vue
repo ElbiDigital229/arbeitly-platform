@@ -3,7 +3,7 @@
     <div class="flex items-start justify-between flex-wrap gap-3">
       <div>
         <h1 class="font-display text-2xl font-bold text-foreground">Job Discovery</h1>
-        <p class="text-sm mt-0.5 text-muted-foreground">Shared job pool. Add jobs and match them to your candidates.</p>
+        <p class="text-sm mt-0.5 text-muted-foreground">Global job pool. Add jobs and score them against any candidate using the active matching prompt.</p>
       </div>
       <div class="flex items-center gap-2">
         <button @click="openImport" class="flex items-center gap-1.5 h-9 px-4 rounded-full text-sm font-medium border border-border text-foreground hover:bg-secondary/60">
@@ -33,13 +33,14 @@
             <div class="flex flex-wrap gap-3 mt-2 text-xs text-muted-foreground">
               <span v-if="job.location" class="flex items-center gap-1"><span class="mdi mdi-map-marker-outline" /> {{ job.location }}</span>
               <span v-if="job.salary" class="flex items-center gap-1"><span class="mdi mdi-cash" /> {{ job.salary }}</span>
-              <span class="flex items-center gap-1"><span class="mdi mdi-account-outline" /> {{ job.addedBy?.email }}</span>
+              <span v-if="job.addedBy?.email" class="flex items-center gap-1"><span class="mdi mdi-account-outline" /> {{ job.addedBy.email }}</span>
+              <span class="flex items-center gap-1"><span class="mdi mdi-calendar-outline" /> {{ formatDate(job.createdAt) }}</span>
             </div>
             <p v-if="job.description" class="text-xs text-muted-foreground mt-2 line-clamp-2">{{ job.description }}</p>
           </div>
           <div class="flex items-center gap-2 shrink-0">
-            <button @click="showCandidates(job)" class="h-8 px-3 rounded-lg text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20">
-              <span class="mdi mdi-target" /> Match
+            <button @click="toggleMatch(job)" class="h-8 px-3 rounded-lg text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20">
+              <span class="mdi mdi-target mr-1" /> Score
             </button>
             <a v-if="job.url" :href="job.url" target="_blank" class="h-8 w-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary/60">
               <span class="mdi mdi-open-in-new text-sm" />
@@ -50,26 +51,31 @@
           </div>
         </div>
 
-        <!-- Candidate matching panel -->
+        <!-- Candidate scoring panel -->
         <div v-if="matchingJobId === job.id" class="mt-4 pt-4 border-t border-border space-y-3">
-          <h4 class="text-sm font-semibold text-foreground">Your Candidates</h4>
-          <div v-if="candidates.length === 0" class="text-xs text-muted-foreground">No candidates assigned to you.</div>
-          <div v-for="c in candidates" :key="c.id" class="flex items-center justify-between py-2 px-3 rounded-lg bg-secondary/30">
-            <div>
-              <p class="text-sm font-medium text-foreground">{{ c.profile?.firstName }} {{ c.profile?.lastName }}</p>
-              <p class="text-xs text-muted-foreground">{{ c.email }}</p>
+          <div class="flex items-center justify-between">
+            <h4 class="text-sm font-semibold text-foreground">All Candidates</h4>
+            <input v-model="candidateSearch" placeholder="Search candidates..." class="h-7 rounded-md bg-secondary border-none text-xs px-2 outline-none w-48" />
+          </div>
+          <div v-if="filteredCandidates.length === 0" class="text-xs text-muted-foreground">No candidates match.</div>
+          <div class="max-h-80 overflow-y-auto space-y-1">
+            <div v-for="c in filteredCandidates" :key="c.id" class="flex items-center justify-between py-2 px-3 rounded-lg bg-secondary/30">
+              <div class="min-w-0 flex-1">
+                <p class="text-sm font-medium text-foreground truncate">{{ candidateName(c) }}</p>
+                <p class="text-xs text-muted-foreground truncate">{{ c.email }}</p>
+              </div>
+              <div class="flex items-center gap-2 shrink-0">
+                <span v-if="scores[`${job.id}-${c.id}`] !== undefined" class="text-xs font-semibold tabular-nums" :class="scores[`${job.id}-${c.id}`] >= 70 ? 'text-green-500' : scores[`${job.id}-${c.id}`] >= 40 ? 'text-yellow-500' : 'text-muted-foreground'">
+                  {{ scores[`${job.id}-${c.id}`] }}%
+                </span>
+                <button @click="scoreCandidate(job.id, c.id)" :disabled="scoring[`${job.id}-${c.id}`]" class="h-7 px-2 rounded text-[10px] font-medium border border-border text-foreground hover:bg-secondary/60 disabled:opacity-50">
+                  {{ scoring[`${job.id}-${c.id}`] ? '...' : 'Score' }}
+                </button>
+              </div>
             </div>
-            <div class="flex items-center gap-2">
-              <span v-if="scores[`${job.id}-${c.id}`] !== undefined" class="text-xs font-semibold tabular-nums" :class="scores[`${job.id}-${c.id}`] >= 70 ? 'text-green-500' : scores[`${job.id}-${c.id}`] >= 40 ? 'text-yellow-500' : 'text-muted-foreground'">
-                {{ scores[`${job.id}-${c.id}`] }}%
-              </span>
-              <button @click="scoreCandidate(job.id, c.id)" :disabled="scoring[`${job.id}-${c.id}`]" class="h-7 px-2 rounded text-[10px] font-medium border border-border text-foreground hover:bg-secondary/60 disabled:opacity-50">
-                {{ scoring[`${job.id}-${c.id}`] ? '...' : 'Score' }}
-              </button>
-              <button @click="addToQueue(job.id, c.id)" :disabled="queuing[`${job.id}-${c.id}`]" class="h-7 px-2 rounded text-[10px] font-medium bg-primary text-primary-foreground disabled:opacity-50">
-                {{ queuing[`${job.id}-${c.id}`] ? '...' : 'Add to Queue' }}
-              </button>
-            </div>
+          </div>
+          <div v-if="reasonings[matchingJobId]" class="rounded-lg border border-primary/20 bg-primary/5 p-3 text-xs text-foreground whitespace-pre-wrap">
+            <p class="font-semibold mb-1">Last reasoning:</p>{{ reasonings[matchingJobId] }}
           </div>
         </div>
       </div>
@@ -81,49 +87,40 @@
         <div class="flex items-start justify-between gap-4">
           <div>
             <h3 class="font-display text-lg font-bold text-foreground">Import Jobs from CSV</h3>
-            <p class="text-xs text-muted-foreground mt-0.5">Bulk add jobs to the shared pool. Max 500 per import.</p>
+            <p class="text-xs text-muted-foreground mt-0.5">Bulk add jobs to the global pool. Max 500 per import.</p>
           </div>
           <button @click="downloadTemplate" class="h-8 px-3 rounded-lg text-xs font-medium border border-border text-foreground hover:bg-secondary/60 shrink-0">
             <span class="mdi mdi-download" /> Template
           </button>
         </div>
-
         <div class="rounded-lg border border-border bg-secondary/20 p-3">
           <p class="text-xs text-muted-foreground">
             <span class="font-medium text-foreground">Required columns:</span> title, company.
             <span class="font-medium text-foreground">Optional:</span> url, location, salary, description, requirements.
           </p>
-          <p class="text-[11px] text-muted-foreground mt-1">First row must be the header. Quoted fields with commas are supported.</p>
         </div>
-
         <div>
           <label class="text-sm font-medium text-foreground block mb-1.5">Upload CSV file</label>
           <input ref="fileInput" type="file" accept=".csv,text/csv" @change="onFileChange" class="block w-full text-xs text-muted-foreground file:mr-3 file:h-9 file:px-4 file:rounded-full file:border-0 file:bg-primary file:text-primary-foreground file:text-xs file:font-medium hover:file:opacity-90" />
         </div>
-
         <div>
           <label class="text-sm font-medium text-foreground block mb-1.5">Or paste CSV content</label>
-          <textarea v-model="csvText" @input="parseCsv" rows="6" class="input-field font-mono text-xs resize-none" placeholder="title,company,location,url,description&#10;Senior Engineer,Acme,Berlin,https://...,Great role" />
+          <textarea v-model="csvText" @input="parseCsv" rows="6" class="input-field font-mono text-xs resize-none" placeholder="title,company,location,url,description" />
         </div>
-
         <p v-if="importError" class="text-sm text-destructive">{{ importError }}</p>
-
         <div v-if="parsedJobs.length > 0" class="rounded-lg border border-border">
           <div class="flex items-center justify-between px-3 py-2 border-b border-border bg-secondary/20">
             <p class="text-xs font-medium text-foreground">Preview — {{ parsedJobs.length }} job{{ parsedJobs.length !== 1 ? 's' : '' }} ready</p>
-            <p v-if="skippedCount > 0" class="text-xs text-yellow-500">{{ skippedCount }} row{{ skippedCount !== 1 ? 's' : '' }} skipped (missing title/company)</p>
+            <p v-if="skippedCount > 0" class="text-xs text-yellow-500">{{ skippedCount }} row{{ skippedCount !== 1 ? 's' : '' }} skipped</p>
           </div>
           <div class="max-h-48 overflow-y-auto divide-y divide-border">
             <div v-for="(j, i) in parsedJobs.slice(0, 50)" :key="i" class="px-3 py-1.5 text-xs flex items-center gap-2">
               <span class="text-muted-foreground tabular-nums w-6">{{ i + 1 }}</span>
               <span class="font-medium text-foreground truncate flex-1">{{ j.title }}</span>
               <span class="text-primary truncate">{{ j.company }}</span>
-              <span class="text-muted-foreground truncate">{{ j.location || '—' }}</span>
             </div>
-            <div v-if="parsedJobs.length > 50" class="px-3 py-1.5 text-[11px] text-muted-foreground text-center">…and {{ parsedJobs.length - 50 }} more</div>
           </div>
         </div>
-
         <div class="flex gap-2 justify-end">
           <button @click="closeImport" class="px-3 py-1.5 rounded-lg text-xs font-medium bg-secondary text-foreground">Cancel</button>
           <button @click="importJobs" :disabled="importing || parsedJobs.length === 0" class="px-4 py-1.5 rounded-lg text-xs font-medium bg-primary text-primary-foreground disabled:opacity-50">
@@ -161,25 +158,26 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import api from '../../services/api';
-import { useEmployeeStore } from '../../stores/employee';
+import { useAdminStore } from '../../stores/admin';
 
-const store = useEmployeeStore();
-const headers = store.getAuthHeaders();
+const store = useAdminStore();
+const headers = computed(() => store.getAuthHeaders());
 
-interface Job { id: string; title: string; company: string; url?: string; description?: string; location?: string; salary?: string; addedBy?: { email: string }; _count?: { queueItems: number }; }
+interface Job { id: string; title: string; company: string; url?: string; description?: string; location?: string; salary?: string; addedBy?: { email: string }; createdAt: string; }
 
 const jobs = ref<Job[]>([]);
 const candidates = ref<any[]>([]);
+const candidateSearch = ref('');
 const loading = ref(true);
 const showDialog = ref(false);
 const formError = ref('');
 const saving = ref(false);
 const matchingJobId = ref<string | null>(null);
 const scores = ref<Record<string, number>>({});
+const reasonings = ref<Record<string, string>>({});
 const scoring = ref<Record<string, boolean>>({});
-const queuing = ref<Record<string, boolean>>({});
 
 const form = ref({ title: '', company: '', url: '', description: '', location: '', salary: '', requirements: '' });
 
@@ -192,23 +190,31 @@ const importError = ref('');
 const importing = ref(false);
 const fileInput = ref<HTMLInputElement | null>(null);
 
-function openImport() {
-  showImport.value = true;
-  csvText.value = '';
-  parsedJobs.value = [];
-  skippedCount.value = 0;
-  importError.value = '';
+const filteredCandidates = computed(() => {
+  const q = candidateSearch.value.trim().toLowerCase();
+  if (!q) return candidates.value;
+  return candidates.value.filter((c: any) => {
+    const name = candidateName(c).toLowerCase();
+    return name.includes(q) || (c.email || '').toLowerCase().includes(q);
+  });
+});
+
+function candidateName(c: any): string {
+  const p = c.profile;
+  if (p?.firstName || p?.lastName) return `${p.firstName || ''} ${p.lastName || ''}`.trim();
+  return c.email?.split('@')[0] || c.email || '—';
 }
 
-function closeImport() {
-  showImport.value = false;
-  if (fileInput.value) fileInput.value.value = '';
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
+
+function openImport() { showImport.value = true; csvText.value = ''; parsedJobs.value = []; skippedCount.value = 0; importError.value = ''; }
+function closeImport() { showImport.value = false; if (fileInput.value) fileInput.value.value = ''; }
 
 function downloadTemplate() {
   const sample = 'title,company,location,salary,url,description,requirements\n' +
-    '"Senior Frontend Engineer","Acme GmbH","Berlin, Germany","€70k–€90k","https://acme.com/jobs/123","Build the next-gen UI","React, TypeScript, 5+ years"\n' +
-    '"Product Manager","Globex","Munich","€80k","","Lead the platform team","Agile, B2B SaaS"';
+    '"Senior Frontend Engineer","Acme GmbH","Berlin, Germany","€70k–€90k","https://acme.com/jobs/123","Build the next-gen UI","React, TypeScript, 5+ years"';
   const blob = new Blob([sample], { type: 'text/csv;charset=utf-8;' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -225,7 +231,6 @@ function onFileChange(e: Event) {
   reader.readAsText(file);
 }
 
-// RFC4180-ish CSV parser: handles quoted fields with commas, escaped quotes ("")
 function splitCsvLine(line: string): string[] {
   const out: string[] = [];
   let cur = '';
@@ -253,7 +258,6 @@ function parseCsv() {
   const text = csvText.value.trim();
   if (!text) return;
 
-  // Split into rows respecting quoted newlines
   const rows: string[] = [];
   let cur = '';
   let inQuotes = false;
@@ -266,17 +270,13 @@ function parseCsv() {
     } else { cur += ch; }
   }
   if (cur) rows.push(cur);
-
   if (rows.length < 2) { importError.value = 'CSV must contain a header row and at least one data row.'; return; }
 
-  const headers = splitCsvLine(rows[0]).map((h) => h.toLowerCase().replace(/^"|"$/g, ''));
-  const titleIdx = headers.indexOf('title');
-  const companyIdx = headers.indexOf('company');
-  if (titleIdx === -1 || companyIdx === -1) {
-    importError.value = 'CSV must include "title" and "company" columns.';
-    return;
-  }
-  const idx = (k: string) => headers.indexOf(k);
+  const headerCells = splitCsvLine(rows[0]).map((h) => h.toLowerCase().replace(/^"|"$/g, ''));
+  const titleIdx = headerCells.indexOf('title');
+  const companyIdx = headerCells.indexOf('company');
+  if (titleIdx === -1 || companyIdx === -1) { importError.value = 'CSV must include "title" and "company" columns.'; return; }
+  const idx = (k: string) => headerCells.indexOf(k);
   const urlIdx = idx('url');
   const locIdx = idx('location');
   const salIdx = idx('salary');
@@ -297,10 +297,7 @@ function parseCsv() {
     parsedJobs.value.push(job);
   }
 
-  if (parsedJobs.value.length > 500) {
-    importError.value = `Too many jobs (${parsedJobs.value.length}). Maximum 500 per import.`;
-    parsedJobs.value = [];
-  }
+  if (parsedJobs.value.length > 500) { importError.value = `Too many jobs (${parsedJobs.value.length}). Maximum 500 per import.`; parsedJobs.value = []; }
 }
 
 async function importJobs() {
@@ -308,7 +305,7 @@ async function importJobs() {
   importError.value = '';
   importing.value = true;
   try {
-    const { data } = await api.post('/jobs/bulk', { jobs: parsedJobs.value }, { headers });
+    const { data } = await api.post('/jobs/bulk', { jobs: parsedJobs.value }, { headers: headers.value });
     closeImport();
     await fetchJobs();
     alert(`Imported ${data.data.created} job${data.data.created !== 1 ? 's' : ''} successfully.`);
@@ -320,7 +317,7 @@ async function importJobs() {
 async function fetchJobs() {
   loading.value = true;
   try {
-    const { data } = await api.get('/jobs', { headers });
+    const { data } = await api.get('/jobs', { headers: headers.value });
     jobs.value = data.data;
   } catch (e) { console.error(e); }
   finally { loading.value = false; }
@@ -328,9 +325,9 @@ async function fetchJobs() {
 
 async function fetchCandidates() {
   try {
-    const { data } = await api.get('/employee/candidates', { headers });
-    candidates.value = data.data;
-  } catch { /* no candidates */ }
+    const { data } = await api.get('/admin/candidates', { headers: headers.value });
+    candidates.value = data.data || [];
+  } catch { /* none */ }
 }
 
 onMounted(() => { fetchJobs(); fetchCandidates(); });
@@ -341,7 +338,7 @@ async function saveJob() {
   formError.value = '';
   saving.value = true;
   try {
-    await api.post('/jobs', form.value, { headers });
+    await api.post('/jobs', form.value, { headers: headers.value });
     showDialog.value = false;
     await fetchJobs();
   } catch (e: any) {
@@ -351,10 +348,10 @@ async function saveJob() {
 
 async function removeJob(id: string) {
   if (!confirm('Delete this job?')) return;
-  try { await api.delete(`/jobs/${id}`, { headers }); await fetchJobs(); } catch (e: any) { alert(e?.response?.data?.error || 'Failed.'); }
+  try { await api.delete(`/jobs/${id}`, { headers: headers.value }); await fetchJobs(); } catch (e: any) { alert(e?.response?.data?.error || 'Failed.'); }
 }
 
-function showCandidates(job: Job) {
+function toggleMatch(job: Job) {
   matchingJobId.value = matchingJobId.value === job.id ? null : job.id;
 }
 
@@ -362,19 +359,10 @@ async function scoreCandidate(jobId: string, candidateId: string) {
   const key = `${jobId}-${candidateId}`;
   scoring.value[key] = true;
   try {
-    const { data } = await api.post(`/jobs/${jobId}/score/${candidateId}`, {}, { headers, timeout: 180000 });
+    const { data } = await api.post(`/jobs/${jobId}/score/${candidateId}`, {}, { headers: headers.value, timeout: 180000 });
     scores.value[key] = data.data.score;
+    if (data.data.reasoning) reasonings.value[jobId] = data.data.reasoning;
   } catch { scores.value[key] = 0; }
   finally { scoring.value[key] = false; }
-}
-
-async function addToQueue(jobId: string, candidateId: string) {
-  const key = `${jobId}-${candidateId}`;
-  queuing.value[key] = true;
-  try {
-    await api.post(`/jobs/${jobId}/queue/${candidateId}`, {}, { headers, timeout: 180000 });
-    alert('Job added to candidate queue! A tailored CV is being generated.');
-  } catch (e: any) { alert(e?.response?.data?.error || 'Failed to add to queue.'); }
-  finally { queuing.value[key] = false; }
 }
 </script>

@@ -40,5 +40,7 @@ router.patch('/prompts/:id', validate(UpdateAdminPromptDto), adminController.upd
 router.delete('/prompts/:id', adminController.deletePrompt);
 router.get('/performance', adminController.getEmployeePerformance);
 router.get('/performance/:id', adminController.getEmployeePerformanceDetail);
+router.get('/ai-settings', adminController.getAiSettings);
+router.put('/ai-settings', adminController.updateAiSettings);
 
 export default router;

@@ -1,15 +1,49 @@
 import type { RequestHandler } from 'express';
 import type { ZodSchema } from 'zod';
-import { AppError } from '../errors/AppError.js';
+import { HttpError } from '../errors/HttpError.js';
 
-export function validate(schema: ZodSchema): RequestHandler {
+interface ValidationSchemas {
+  body?: ZodSchema;
+  query?: ZodSchema;
+  params?: ZodSchema;
+}
+
+function isZodSchema(value: ZodSchema | ValidationSchemas): value is ZodSchema {
+  return typeof (value as ZodSchema).safeParse === 'function';
+}
+
+function formatZodErrors(error: import('zod').ZodError): string {
+  return error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join('; ');
+}
+
+/**
+ * Validate request data against a Zod schema.
+ *
+ * Two forms:
+ *   validate(BodySchema)
+ *   validate({ body: BodySchema, params: ParamsSchema, query: QuerySchema })
+ */
+export function validate(schemaOrSchemas: ZodSchema | ValidationSchemas): RequestHandler {
+  const schemas: ValidationSchemas = isZodSchema(schemaOrSchemas)
+    ? { body: schemaOrSchemas }
+    : schemaOrSchemas;
+
   return (req, _res, next) => {
-    const result = schema.safeParse(req.body);
-    if (!result.success) {
-      const messages = result.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join('; ');
-      return next(new AppError(messages, 400, 'VALIDATION_ERROR'));
+    if (schemas.body) {
+      const result = schemas.body.safeParse(req.body);
+      if (!result.success) return next(HttpError.unprocessable(formatZodErrors(result.error)));
+      req.body = result.data;
     }
-    req.body = result.data;
+    if (schemas.params) {
+      const result = schemas.params.safeParse(req.params);
+      if (!result.success) return next(HttpError.unprocessable(formatZodErrors(result.error)));
+      req.params = result.data;
+    }
+    if (schemas.query) {
+      const result = schemas.query.safeParse(req.query);
+      if (!result.success) return next(HttpError.unprocessable(formatZodErrors(result.error)));
+      Object.assign(req.query, result.data);
+    }
     next();
   };
 }

@@ -48,6 +48,25 @@ model User {
   transactions          Transaction[]
   pendingCheckouts      PendingCheckout[]
   activityLogs          ActivityLog[]
+  filesAsCandidate      CandidateFile[]     @relation("FilesCandidate")
+  filesAsUploader       CandidateFile[]     @relation("FilesUploader")
+}
+
+model CandidateFile {
+  id           String   @id @default(cuid())
+  candidateId  String
+  uploadedById String?
+  filename     String
+  mimetype     String
+  size         Int
+  storageKey   String
+  label        String?
+  createdAt    DateTime @default(now())
+
+  candidate  User  @relation("FilesCandidate", fields: [candidateId], references: [id], onDelete: Cascade)
+  uploadedBy User? @relation("FilesUploader", fields: [uploadedById], references: [id])
+
+  @@index([candidateId])
 }
 
 model Plan {
@@ -57,6 +76,7 @@ model Plan {
   price            Float
   currency         String   @default("EUR")
   applicationLimit Int
+  cvLimit          Int      @default(10)
   features         Json     @default("[]")
   isActive         Boolean  @default(true)
   isPopular        Boolean  @default(false)
@@ -177,6 +197,12 @@ model AdminPrompt {
   isActive  Boolean  @default(true)
   version   Int      @default(1)
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model SystemSetting {
+  key       String   @id
+  value     String
   updatedAt DateTime @updatedAt
 }
 

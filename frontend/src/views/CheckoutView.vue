@@ -37,21 +37,86 @@
           </div>
         </div>
 
-        <p v-if="error" class="mt-4 text-sm text-destructive">{{ error }}</p>
+        <!-- Mock card form -->
+        <form @submit.prevent="handlePurchase" class="mt-6 rounded-2xl border border-border bg-card p-6 space-y-4">
+          <div class="flex items-center justify-between">
+            <h3 class="font-display text-base font-semibold text-foreground">Card details</h3>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-yellow-500/15 text-yellow-500 border border-yellow-500/30">TEST MODE</span>
+          </div>
 
-        <button
-          @click="handlePurchase"
-          :disabled="purchasing"
-          class="mt-6 w-full h-11 rounded-full text-sm font-semibold transition-opacity disabled:opacity-50 bg-primary text-primary-foreground hover:opacity-90"
-        >
-          {{ purchasing ? 'Redirecting to payment...' : `Pay €${plan.price} Now` }}
-        </button>
+          <div>
+            <label class="text-xs font-medium text-muted-foreground block mb-1.5">Cardholder name</label>
+            <input
+              v-model="card.name"
+              type="text"
+              placeholder="Jane Doe"
+              required
+              class="w-full h-10 rounded-lg bg-secondary border-none px-3 text-sm text-foreground placeholder:text-muted-foreground/60 outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
 
-        <div class="mt-4 flex items-center justify-center gap-3 text-muted-foreground">
-          <span class="mdi mdi-lock-outline text-sm" />
-          <span class="text-xs">Secure payment via Stripe</span>
-          <span class="mdi mdi-credit-card-outline text-sm" />
-        </div>
+          <div>
+            <label class="text-xs font-medium text-muted-foreground block mb-1.5">Card number</label>
+            <div class="relative">
+              <input
+                v-model="card.number"
+                type="text"
+                inputmode="numeric"
+                placeholder="4242 4242 4242 4242"
+                maxlength="19"
+                required
+                @input="formatCardNumber"
+                class="w-full h-10 rounded-lg bg-secondary border-none pl-3 pr-10 text-sm text-foreground placeholder:text-muted-foreground/60 outline-none focus:ring-2 focus:ring-primary tabular-nums"
+              />
+              <span class="mdi mdi-credit-card-outline absolute right-3 top-1/2 -translate-y-1/2 text-base text-muted-foreground" />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="text-xs font-medium text-muted-foreground block mb-1.5">Expiry</label>
+              <input
+                v-model="card.expiry"
+                type="text"
+                inputmode="numeric"
+                placeholder="MM/YY"
+                maxlength="5"
+                required
+                @input="formatExpiry"
+                class="w-full h-10 rounded-lg bg-secondary border-none px-3 text-sm text-foreground placeholder:text-muted-foreground/60 outline-none focus:ring-2 focus:ring-primary tabular-nums"
+              />
+            </div>
+            <div>
+              <label class="text-xs font-medium text-muted-foreground block mb-1.5">CVC</label>
+              <input
+                v-model="card.cvc"
+                type="text"
+                inputmode="numeric"
+                placeholder="123"
+                maxlength="4"
+                required
+                @input="(e: any) => card.cvc = e.target.value.replace(/\D/g, '')"
+                class="w-full h-10 rounded-lg bg-secondary border-none px-3 text-sm text-foreground placeholder:text-muted-foreground/60 outline-none focus:ring-2 focus:ring-primary tabular-nums"
+              />
+            </div>
+          </div>
+
+          <p v-if="error" class="text-sm text-destructive">{{ error }}</p>
+
+          <button
+            type="submit"
+            :disabled="purchasing"
+            class="w-full h-11 rounded-full text-sm font-semibold transition-opacity disabled:opacity-50 bg-primary text-primary-foreground hover:opacity-90"
+          >
+            <span v-if="purchasing" class="mdi mdi-loading mdi-spin mr-2" />
+            {{ purchasing ? 'Processing payment...' : `Pay €${plan.price} Now` }}
+          </button>
+
+          <div class="flex items-center justify-center gap-3 text-muted-foreground">
+            <span class="mdi mdi-lock-outline text-sm" />
+            <span class="text-xs">Test mode — no real charge will be made</span>
+          </div>
+        </form>
       </template>
 
       <div v-else class="text-center py-16">
@@ -84,6 +149,19 @@ const loadingPlan = ref(true);
 const purchasing = ref(false);
 const error = ref('');
 
+const card = ref({ name: '', number: '', expiry: '', cvc: '' });
+
+function formatCardNumber(e: Event) {
+  const v = (e.target as HTMLInputElement).value.replace(/\D/g, '').slice(0, 16);
+  card.value.number = v.replace(/(\d{4})(?=\d)/g, '$1 ');
+}
+
+function formatExpiry(e: Event) {
+  let v = (e.target as HTMLInputElement).value.replace(/\D/g, '').slice(0, 4);
+  if (v.length >= 3) v = `${v.slice(0, 2)}/${v.slice(2)}`;
+  card.value.expiry = v;
+}
+
 onMounted(async () => {
   const planId = route.query.plan as string;
   if (!planId) { loadingPlan.value = false; return; }
@@ -99,14 +177,21 @@ async function handlePurchase() {
   purchasing.value = true;
   error.value = '';
   try {
-    // Try Stripe Checkout first
-    const { data } = await api.post('/payment/create-checkout', { planId: plan.value.id });
-    if (data.data?.url) {
-      window.location.href = data.data.url;
-      return;
-    }
-    // Fallback to mock purchase if Stripe not configured
-    await api.post('/payment/purchase', { planId: plan.value.id });
+    // Try Stripe Checkout first — silently fall through to mock if not configured
+    try {
+      const { data } = await api.post('/payment/create-checkout', { planId: plan.value.id });
+      if (data.data?.url) {
+        window.location.href = data.data.url;
+        return;
+      }
+    } catch { /* Stripe not configured — use mock */ }
+
+    // Mock purchase: send card "details" (last 4 only) for the transaction record
+    const last4 = card.value.number.replace(/\s/g, '').slice(-4);
+    await api.post('/payment/purchase', {
+      planId: plan.value.id,
+      mockCard: { name: card.value.name, last4, expiry: card.value.expiry },
+    });
     await auth.fetchMe();
     if (!auth.user?.profile?.onboardingCompleted) {
       router.push('/candidate/onboarding');

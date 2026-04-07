@@ -26,7 +26,7 @@
         <div class="mb-4">
           <span class="font-display text-3xl font-bold text-foreground">&euro;{{ plan.price }}</span>
           <p class="text-xs text-muted-foreground mt-1">one time payment</p>
-          <p class="text-xs text-muted-foreground">{{ plan.applicationLimit }} applications</p>
+          <p class="text-xs text-muted-foreground">{{ plan.applicationLimit }} applications · {{ plan.cvLimit }} CV exports</p>
           <p v-if="plan._count?.candidates" class="text-xs text-primary mt-1">{{ plan._count.candidates }} candidate{{ plan._count.candidates !== 1 ? 's' : '' }}</p>
         </div>
         <ul class="space-y-2 flex-1 mb-4">
@@ -59,7 +59,11 @@
           </div>
           <div class="grid grid-cols-2 gap-3">
             <div><label class="text-sm font-medium text-foreground block mb-1">Application Limit</label><input v-model.number="form.applicationLimit" type="number" min="0" class="input-field" /></div>
-            <div><label class="text-sm font-medium text-foreground block mb-1">Sort Order</label><input v-model.number="form.sortOrder" type="number" class="input-field" /></div>
+            <div><label class="text-sm font-medium text-foreground block mb-1">CV Export Limit</label><input v-model.number="form.cvLimit" type="number" min="0" class="input-field" /></div>
+          </div>
+          <div>
+            <label class="text-sm font-medium text-foreground block mb-1">Sort Order</label>
+            <input v-model.number="form.sortOrder" type="number" class="input-field" />
           </div>
           <div><label class="text-sm font-medium text-foreground block mb-1">Description</label><input v-model="form.description" class="input-field" /></div>
           <div class="flex items-center gap-4">
@@ -107,7 +111,7 @@ const store = useAdminStore();
 interface Feature { text: string; included: boolean; }
 interface Plan {
   id: string; name: string; description: string | null; price: number; currency: string;
-  applicationLimit: number; features: Feature[]; isActive: boolean; isPopular: boolean;
+  applicationLimit: number; cvLimit: number; features: Feature[]; isActive: boolean; isPopular: boolean;
   sortOrder: number; _count?: { candidates: number };
 }
 
@@ -121,7 +125,7 @@ const saving = ref(false);
 const activePlanCount = computed(() => plans.value.filter(p => p.isActive).length);
 
 const emptyForm = () => ({
-  name: '', description: '', price: 0, applicationLimit: 0, sortOrder: 0,
+  name: '', description: '', price: 0, applicationLimit: 0, cvLimit: 10, sortOrder: 0,
   isPopular: false, isActive: true, features: [{ text: '', included: true }] as Feature[],
 });
 const form = ref(emptyForm());
@@ -143,7 +147,7 @@ function editPlan(p: Plan) {
   editingId.value = p.id;
   form.value = {
     name: p.name, description: p.description || '', price: p.price,
-    applicationLimit: p.applicationLimit, sortOrder: p.sortOrder,
+    applicationLimit: p.applicationLimit, cvLimit: p.cvLimit ?? 10, sortOrder: p.sortOrder,
     isPopular: p.isPopular, isActive: p.isActive,
     features: (p.features || []).map(f => ({ ...f })),
   };

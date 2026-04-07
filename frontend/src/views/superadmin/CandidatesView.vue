@@ -47,9 +47,14 @@
             <td class="px-4 py-3 text-muted-foreground text-xs">{{ c.assignedEmployee?.email || '—' }}</td>
             <td class="px-4 py-3 text-muted-foreground text-xs">{{ formatDate(c.createdAt) }}</td>
             <td class="px-4 py-3">
-              <select :value="c.assignedEmployee?.id || ''" @change="assignEmployee(c.id, ($event.target as HTMLSelectElement).value)"
-                class="h-7 rounded-md bg-secondary border-none text-[11px] text-foreground px-1.5 outline-none w-full max-w-[140px]">
-                <option value="">Unassigned</option>
+              <select
+                :value="c.assignedEmployee?.id || ''"
+                :disabled="!c.profile?.plan || !c.profile?.onboardingCompleted"
+                :title="!c.profile?.plan ? 'Free candidates cannot be assigned' : !c.profile?.onboardingCompleted ? 'Onboarding not complete' : ''"
+                @change="assignEmployee(c.id, ($event.target as HTMLSelectElement).value)"
+                class="h-7 rounded-md bg-secondary border-none text-[11px] text-foreground px-1.5 outline-none w-full max-w-[140px] disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <option value="">{{ !c.profile?.plan ? 'Free — N/A' : 'Unassigned' }}</option>
                 <option v-for="e in employees" :key="e.id" :value="e.id">{{ e.email }}</option>
               </select>
             </td>

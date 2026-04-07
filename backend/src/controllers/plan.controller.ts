@@ -1,9 +1,9 @@
-import type { RequestHandler } from 'express';
 import { planRepository } from '../repositories/plan.repository.js';
 import { success } from '../utils/response.js';
+import { asyncHandler } from '../utils/asyncHandler.js';
 
 export const planController = {
-  getActivePlans: (async (_req, res, next) => {
-    try { success(res, await planRepository.findActive()); } catch (err) { next(err); }
-  }) as RequestHandler,
+  getActivePlans: asyncHandler(async (_req, res) => {
+    success(res, await planRepository.findActive());
+  }),
 };

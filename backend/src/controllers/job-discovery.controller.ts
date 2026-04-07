@@ -1,29 +1,34 @@
-import type { RequestHandler } from 'express';
 import { jobDiscoveryService } from '../services/job-discovery.service.js';
 import { success } from '../utils/response.js';
+import { asyncHandler } from '../utils/asyncHandler.js';
 
 export const jobDiscoveryController = {
-  getJobs: (async (_req, res, next) => {
-    try { success(res, await jobDiscoveryService.getJobs()); } catch (err) { next(err); }
-  }) as RequestHandler,
+  getJobs: asyncHandler(async (_req, res) => {
+    success(res, await jobDiscoveryService.getJobs());
+  }),
 
-  getJob: (async (req, res, next) => {
-    try { success(res, await jobDiscoveryService.getJob(req.params.id)); } catch (err) { next(err); }
-  }) as RequestHandler,
+  getJob: asyncHandler(async (req, res) => {
+    success(res, await jobDiscoveryService.getJob(req.params.id));
+  }),
 
-  createJob: (async (req, res, next) => {
-    try { success(res, await jobDiscoveryService.createJob(req.body, req.user!.id), 201); } catch (err) { next(err); }
-  }) as RequestHandler,
+  createJob: asyncHandler(async (req, res) => {
+    success(res, await jobDiscoveryService.createJob(req.body, req.user!.id), 201);
+  }),
 
-  deleteJob: (async (req, res, next) => {
-    try { await jobDiscoveryService.deleteJob(req.params.id); success(res, { message: 'Job deleted' }); } catch (err) { next(err); }
-  }) as RequestHandler,
+  bulkCreate: asyncHandler(async (req, res) => {
+    success(res, await jobDiscoveryService.bulkCreate(req.body.jobs, req.user!.id), 201);
+  }),
 
-  scoreRelevance: (async (req, res, next) => {
-    try { success(res, await jobDiscoveryService.scoreRelevance(req.params.id, req.params.candidateId)); } catch (err) { next(err); }
-  }) as RequestHandler,
+  deleteJob: asyncHandler(async (req, res) => {
+    await jobDiscoveryService.deleteJob(req.params.id);
+    success(res, { message: 'Job deleted' });
+  }),
 
-  addToQueue: (async (req, res, next) => {
-    try { success(res, await jobDiscoveryService.addToQueue(req.params.id, req.params.candidateId, req.user!.id), 201); } catch (err) { next(err); }
-  }) as RequestHandler,
+  scoreRelevance: asyncHandler(async (req, res) => {
+    success(res, await jobDiscoveryService.scoreRelevance(req.params.id, req.params.candidateId));
+  }),
+
+  addToQueue: asyncHandler(async (req, res) => {
+    success(res, await jobDiscoveryService.addToQueue(req.params.id, req.params.candidateId, req.user!.id), 201);
+  }),
 };

@@ -2,7 +2,8 @@ import { Router } from 'express';
 import { jobDiscoveryController } from '../controllers/job-discovery.controller.js';
 import { authenticate } from '../middleware/auth.middleware.js';
 import { validate } from '../middleware/validate.middleware.js';
-import { CreateJobDiscoveryDto } from '../dtos/job-discovery.dto.js';
+import { aiRateLimiter } from '../middleware/rateLimiter.middleware.js';
+import { CreateJobDiscoveryDto, BulkCreateJobDiscoveryDto } from '../dtos/job-discovery.dto.js';
 import { HttpError } from '../errors/HttpError.js';
 import type { RequestHandler } from 'express';
 
@@ -20,8 +21,9 @@ router.use(authenticate, requireEmployeeOrAdmin);
 router.get('/', jobDiscoveryController.getJobs);
 router.get('/:id', jobDiscoveryController.getJob);
 router.post('/', validate(CreateJobDiscoveryDto), jobDiscoveryController.createJob);
+router.post('/bulk', validate(BulkCreateJobDiscoveryDto), jobDiscoveryController.bulkCreate);
 router.delete('/:id', jobDiscoveryController.deleteJob);
-router.post('/:id/score/:candidateId', jobDiscoveryController.scoreRelevance);
-router.post('/:id/queue/:candidateId', jobDiscoveryController.addToQueue);
+router.post('/:id/score/:candidateId', aiRateLimiter, jobDiscoveryController.scoreRelevance);
+router.post('/:id/queue/:candidateId', aiRateLimiter, jobDiscoveryController.addToQueue);
 
 export default router;

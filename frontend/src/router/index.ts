@@ -47,6 +47,12 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
+      path: '/candidate/invoice/:id',
+      name: 'CandidateInvoice',
+      component: () => import('../views/candidate/InvoiceView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
       path: '/onboarding/simple',
       name: 'SimpleOnboarding',
       component: () => import('../views/SimpleOnboardingView.vue'),
@@ -134,6 +140,7 @@ const router = createRouter({
         { path: 'employees', name: 'AdminEmployees', component: () => import('../views/superadmin/EmployeesView.vue') },
         { path: 'plans', name: 'AdminPlans', component: () => import('../views/superadmin/PlansView.vue') },
         { path: 'performance', name: 'AdminPerformance', component: () => import('../views/superadmin/PerformanceView.vue') },
+        { path: 'job-discovery', name: 'AdminJobDiscovery', component: () => import('../views/superadmin/JobDiscoveryView.vue') },
         { path: 'ai-config', name: 'AdminAIConfig', component: () => import('../views/superadmin/AIConfigView.vue') },
         { path: 'audit-log', name: 'AdminAuditLog', component: () => import('../views/superadmin/AuditLogView.vue') },
         { path: 'system-settings', name: 'AdminSystemSettings', component: () => import('../views/superadmin/SystemSettingsView.vue') },

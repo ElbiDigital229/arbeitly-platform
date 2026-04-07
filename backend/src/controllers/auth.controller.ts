@@ -1,42 +1,26 @@
-import type { RequestHandler } from 'express';
 import { authService } from '../services/auth.service.js';
 import { success } from '../utils/response.js';
+import { asyncHandler } from '../utils/asyncHandler.js';
 
 export const authController = {
-  register: (async (req, res, next) => {
-    try {
-      const result = await authService.register(req.body);
-      success(res, result, 201);
-    } catch (err) {
-      next(err);
-    }
-  }) as RequestHandler,
+  register: asyncHandler(async (req, res) => {
+    const result = await authService.register(req.body);
+    success(res, result, 201);
+  }),
 
-  login: (async (req, res, next) => {
-    try {
-      const result = await authService.login(req.body);
-      success(res, result);
-    } catch (err) {
-      next(err);
-    }
-  }) as RequestHandler,
+  login: asyncHandler(async (req, res) => {
+    const result = await authService.login(req.body);
+    success(res, result);
+  }),
 
-  me: (async (req, res, next) => {
-    try {
-      const result = await authService.getMe(req.user!.id);
-      success(res, result);
-    } catch (err) {
-      next(err);
-    }
-  }) as RequestHandler,
+  me: asyncHandler(async (req, res) => {
+    const result = await authService.getMe(req.user!.id);
+    success(res, result);
+  }),
 
-  changePassword: (async (req, res, next) => {
-    try {
-      const { currentPassword, newPassword } = req.body;
-      const result = await authService.changePassword(req.user!.id, currentPassword, newPassword);
-      success(res, result);
-    } catch (err) {
-      next(err);
-    }
-  }) as RequestHandler,
+  changePassword: asyncHandler(async (req, res) => {
+    const { currentPassword, newPassword } = req.body;
+    const result = await authService.changePassword(req.user!.id, currentPassword, newPassword);
+    success(res, result);
+  }),
 };

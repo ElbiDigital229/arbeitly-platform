@@ -1,13 +1,30 @@
-import Anthropic from '@anthropic-ai/sdk';
 import { prisma } from '../config/prisma.js';
-import { env } from '../config/env.js';
 import { jobDiscoveryRepository } from '../repositories/job-discovery.repository.js';
 import { adminPromptRepository } from '../repositories/admin-prompt.repository.js';
 import { cvEnhanceService } from './cv-enhance.service.js';
 import { HttpError } from '../errors/HttpError.js';
+import { aiCompleteJson } from './external/ai-client.js';
 import type { CreateJobDiscoveryDtoType } from '../dtos/job-discovery.dto.js';
 
-const getClient = () => new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
+const DEFAULT_JOB_MATCHING_PROMPT = `You are an expert job-matching analyst for Arbeitly, a German job-search platform.
+You will be given a job posting and a complete candidate dossier consisting of: (1) profile basics, (2) full onboarding questionnaire answers, (3) the candidate's base CV (parsed JSON), and (4) FAQ / interview-prep items written by the candidate's coach.
+
+Score the match on a scale of 0–100 where:
+- 90–100: Excellent fit — meets nearly all hard requirements, location/language aligned, career goals match
+- 70–89: Strong fit — meets most hard requirements, minor gaps the candidate could close quickly
+- 50–69: Possible fit — meaningful overlap but significant gaps in skills, location, language, or seniority
+- 30–49: Weak fit — only superficial overlap
+- 0–29: Poor fit or wrong domain entirely
+
+Consider in order of importance:
+1. Hard requirements (must-have skills, certifications, language level, work authorization)
+2. Role/title alignment with the candidate's target roles from onboarding
+3. Years of experience and seniority vs. job seniority
+4. Location and relocation willingness
+5. Salary expectations vs. job offer
+6. Career goals, motivation, and any constraints expressed in onboarding/FAQ
+
+Be strict and evidence-based — cite specific facts from the candidate dossier in your reasoning.`;
 
 export const jobDiscoveryService = {
   async getJobs() {
@@ -28,6 +45,22 @@ export const jobDiscoveryService = {
     });
   },
 
+  async bulkCreate(jobs: CreateJobDiscoveryDtoType[], addedById: string) {
+    const result = await prisma.jobDiscovery.createMany({
+      data: jobs.map((j) => ({
+        title: j.title,
+        company: j.company,
+        url: j.url || null,
+        description: j.description || null,
+        location: j.location || null,
+        salary: j.salary || null,
+        requirements: j.requirements || null,
+        addedById,
+      })),
+    });
+    return { created: result.count };
+  },
+
   async deleteJob(id: string) {
     const job = await jobDiscoveryRepository.findById(id);
     if (!job) throw HttpError.notFound('Job not found');
@@ -46,47 +79,65 @@ export const jobDiscoveryService = {
     });
     if (!candidate) throw HttpError.notFound('Candidate not found');
 
-    const cvData = candidate.cvs[0]?.parsedData;
     const profile = candidate.profile;
+    const cvData = candidate.cvs[0]?.parsedData;
+    const onboarding = (profile?.onboardingData || {}) as Record<string, any>;
+    const faqItems = await prisma.faqItem.findMany({
+      where: { candidateId },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
+      select: { question: true, answer: true, category: true },
+    });
 
     const adminPrompt = await adminPromptRepository.findActiveByType('JOB_MATCHING');
-    const systemPrompt = adminPrompt?.prompt || 'You are a job matching expert. Score how well this candidate matches the job on a scale of 0-100. Return JSON: {"score": number, "reasoning": "brief explanation"}';
+    const systemPrompt = adminPrompt?.prompt || DEFAULT_JOB_MATCHING_PROMPT;
 
-    const client = getClient();
-    const response = await client.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 1024,
-      messages: [{
-        role: 'user',
-        content: `${systemPrompt}
+    // Build candidate context block from onboarding answers (skip empty)
+    const onboardingLines = Object.entries(onboarding)
+      .filter(([, v]) => v != null && v !== '')
+      .map(([k, v]) => `- ${k}: ${typeof v === 'string' ? v : JSON.stringify(v)}`)
+      .join('\n');
 
-JOB:
+    const faqBlock = faqItems.length
+      ? faqItems.map(f => `Q: ${f.question}\nA: ${f.answer}${f.category ? ` [${f.category}]` : ''}`).join('\n\n')
+      : 'No FAQ items provided.';
+
+    const prompt = `${systemPrompt}
+
+═══════════════ JOB ═══════════════
 Title: ${job.title}
 Company: ${job.company}
 Location: ${job.location || 'Not specified'}
-Description: ${job.description || 'Not provided'}
-Requirements: ${job.requirements || 'Not specified'}
+Salary: ${job.salary || 'Not specified'}
+Description:
+${job.description || 'Not provided'}
 
-CANDIDATE:
-Name: ${profile?.firstName} ${profile?.lastName}
+Requirements:
+${job.requirements || 'Not specified'}
+
+═══════════════ CANDIDATE PROFILE ═══════════════
+Name: ${profile?.firstName || ''} ${profile?.lastName || ''}
 Location: ${profile?.location || 'Not specified'}
-Bio: ${profile?.bio || ''}
-${cvData ? `CV Summary: ${JSON.stringify(cvData).slice(0, 3000)}` : 'No CV data available'}`,
-      }],
-    });
+Phone: ${profile?.phone || '—'}
+LinkedIn: ${profile?.linkedinUrl || '—'}
+Bio:
+${profile?.bio || '—'}
 
-    const textContent = response.content.find(c => c.type === 'text');
-    if (!textContent || textContent.type !== 'text') throw new Error('No AI response');
+═══════════════ ONBOARDING ANSWERS ═══════════════
+${onboardingLines || 'No onboarding data provided.'}
 
-    let jsonText = textContent.text.trim();
-    if (jsonText.startsWith('```')) jsonText = jsonText.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```\s*$/, '');
-    const firstBrace = jsonText.indexOf('{');
-    const lastBrace = jsonText.lastIndexOf('}');
-    if (firstBrace !== -1 && lastBrace > firstBrace) jsonText = jsonText.slice(firstBrace, lastBrace + 1);
-    jsonText = jsonText.replace(/,\s*([}\]])/g, '$1');
+═══════════════ BASE CV (parsed) ═══════════════
+${cvData ? JSON.stringify(cvData).slice(0, 6000) : 'No base CV available.'}
+
+═══════════════ FAQ / INTERVIEW PREP ═══════════════
+${faqBlock}
+
+═══════════════ TASK ═══════════════
+Score how well this candidate matches the job above on a scale of 0–100.
+Weigh role/title fit, required skills vs CV experience, location compatibility (including relocation willingness from onboarding), language requirements, salary expectations, career goals from onboarding, and any preferences expressed in FAQ items.
+Return STRICT JSON only: {"score": <number 0-100>, "reasoning": "<2-4 sentence explanation citing specific evidence>"}`;
 
     try {
-      return JSON.parse(jsonText);
+      return await aiCompleteJson<{ score: number; reasoning: string }>(prompt, { maxTokens: 1024 });
     } catch {
       return { score: 0, reasoning: 'Failed to parse AI response' };
     }

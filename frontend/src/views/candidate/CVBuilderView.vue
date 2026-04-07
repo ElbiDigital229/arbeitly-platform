@@ -146,13 +146,22 @@
   </div>
 
   <!-- EDITOR (split layout) -->
-  <div v-else-if="step === 'editor'" class="flex h-[calc(100vh-48px)]">
+  <div v-else-if="step === 'editor'" :class="['flex', isEmployeeMode ? 'h-[calc(100vh-220px)] min-h-[640px]' : 'h-[calc(100vh-48px)]']">
     <!-- Left: form -->
     <div class="flex flex-col border-r border-border shrink-0 w-full md:w-[480px] bg-[hsl(196,89%,10%)]">
       <!-- Toolbar -->
       <div class="flex items-center gap-2 px-4 py-2.5 border-b border-border shrink-0">
         <button @click="step = 'landing'" class="flex items-center gap-1.5 px-2 py-1 rounded text-xs text-muted-foreground hover:bg-secondary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
           <span class="mdi mdi-arrow-left text-sm" />Back
+        </button>
+        <button
+          v-if="isEmployeeMode && editingVersionId"
+          @click="enhanceWithArbeitly"
+          :disabled="enhancing"
+          class="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium bg-primary/15 text-primary border border-primary/30 hover:bg-primary/25 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        >
+          <span class="mdi text-sm" :class="enhancing ? 'mdi-loading mdi-spin' : 'mdi-creation'" />
+          {{ enhancing ? 'Enhancing…' : 'Enhance with Arbeitly' }}
         </button>
         <div class="flex-1" />
         <!-- Style tabs -->
@@ -208,42 +217,30 @@
             <input ref="photoEditorInput" type="file" accept="image/*" class="hidden" @change="onPhotoSelect" />
           </div>
 
-          <div class="grid grid-cols-2 gap-2">
-            <div class="col-span-2">
-              <label class="text-xs block mb-1 text-foreground">Full Name</label>
-              <input v-model="editorData.fullName" placeholder="Anna Müller" class="input-field" />
-            </div>
-            <div>
-              <label class="text-xs block mb-1 text-foreground">Email</label>
-              <input v-model="editorData.email" placeholder="anna@example.com" class="input-field" />
-            </div>
-            <div>
-              <label class="text-xs block mb-1 text-foreground">Phone</label>
-              <input v-model="editorData.phone" placeholder="+49 123 456 789" class="input-field" />
-            </div>
-            <div>
-              <label class="text-xs block mb-1 text-foreground">Location</label>
-              <input v-model="editorData.location" placeholder="Berlin, Germany" class="input-field" />
-            </div>
-            <div>
-              <label class="text-xs block mb-1 text-foreground">Nationality</label>
-              <input v-model="editorData.nationality" placeholder="e.g. German" class="input-field" />
-            </div>
-            <div>
-              <label class="text-xs block mb-1 text-foreground">LinkedIn</label>
-              <input v-model="editorData.linkedin" placeholder="linkedin.com/in/anna" class="input-field" />
-            </div>
-            <div>
-              <label class="text-xs block mb-1 text-foreground">Website</label>
-              <input v-model="editorData.website" placeholder="anna.com" class="input-field" />
-            </div>
-            <div>
-              <label class="text-xs block mb-1 text-foreground">GitHub</label>
-              <input v-model="editorData.github" placeholder="github.com/anna" class="input-field" />
-            </div>
-            <div>
-              <label class="text-xs block mb-1 text-foreground">Portfolio</label>
-              <input v-model="editorData.portfolio" placeholder="anna.dev" class="input-field" />
+          <div>
+            <label class="text-xs block mb-1 text-foreground">Full Name</label>
+            <input v-model="editorData.fullName" placeholder="Anna Müller" class="input-field" />
+          </div>
+          <p class="text-[10px] text-muted-foreground mt-2 mb-1">Drag to reorder contact fields in the CV header</p>
+          <div class="space-y-1.5">
+            <div
+              v-for="cKey in editorData.contactOrder"
+              :key="cKey"
+              :class="['flex items-center gap-2 transition-all duration-150', contactDragOverKey === cKey && contactDragKey !== cKey ? 'ring-1 ring-primary/40 rounded-lg' : '', contactDragKey === cKey ? 'opacity-50' : '']"
+              draggable="true"
+              @dragstart="contactDragStart(cKey, $event)"
+              @dragover="contactDragOver(cKey, $event)"
+              @dragleave="contactDragLeave"
+              @dragend="contactDragEnd"
+              @drop="contactDragDrop(cKey)"
+            >
+              <span class="mdi mdi-drag-vertical text-sm shrink-0 text-foreground/50 hover:text-foreground cursor-grab active:cursor-grabbing" />
+              <label class="text-xs w-20 shrink-0 text-foreground">{{ CONTACT_FIELDS[cKey]?.label }}</label>
+              <input
+                v-model="(editorData as any)[CONTACT_FIELDS[cKey]?.model]"
+                :placeholder="CONTACT_FIELDS[cKey]?.placeholder"
+                class="input-field flex-1"
+              />
             </div>
           </div>
         </div>
@@ -385,20 +382,43 @@
             <div class="flex items-center justify-between gap-3">
               <div class="flex items-center gap-2">
                 <span class="mdi mdi-drag-vertical text-base shrink-0 text-foreground/50 hover:text-foreground cursor-grab active:cursor-grabbing" />
-                <p class="text-xs font-semibold text-muted-foreground">Custom section</p>
+                <p class="text-xs font-semibold text-muted-foreground">{{ getCustomSection(sectionKey)?.heading || 'Custom section' }}</p>
               </div>
-              <button @click="removeCustomSection(sectionKey)" class="h-7 px-3 rounded-lg text-xs text-destructive hover:bg-destructive/10">Remove</button>
+              <div class="flex items-center gap-1">
+                <button @click="addCustomEntry(sectionKey)" class="flex items-center gap-1 h-7 px-3 rounded-lg text-xs border border-border text-foreground hover:bg-secondary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                  <span class="mdi mdi-plus text-xs" />Add
+                </button>
+                <button @click="removeCustomSection(sectionKey)" class="h-7 px-3 rounded-lg text-xs text-destructive hover:bg-destructive/10">Remove</button>
+              </div>
             </div>
             <div>
-              <label class="text-xs block mb-1 text-foreground">Heading</label>
+              <label class="text-xs block mb-1 text-foreground">Section Heading</label>
               <input
                 :value="getCustomSection(sectionKey)?.heading || ''"
                 @input="updateCustomSection(sectionKey, 'heading', ($event.target as HTMLInputElement).value)"
-                placeholder="e.g. Certifications"
+                placeholder="e.g. Certifications, Projects, Awards"
                 class="input-field"
               />
             </div>
-            <div>
+            <!-- Entry-based content -->
+            <template v-if="getCustomSection(sectionKey)?.entries?.length">
+              <div v-for="(entry, ei) in getCustomSection(sectionKey)!.entries" :key="entry.id" class="rounded-lg p-3 space-y-2 border border-white/5 bg-white/[0.02]">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-medium text-muted-foreground">Entry {{ ei + 1 }}</span>
+                  <button @click="removeCustomEntry(sectionKey, ei)" class="h-6 w-6 rounded flex items-center justify-center hover:bg-white/5">
+                    <span class="mdi mdi-trash-can-outline text-xs text-destructive" />
+                  </button>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                  <input v-model="entry.title" placeholder="Title / Name" class="input-field input-field-sm" />
+                  <input v-model="entry.subtitle" placeholder="Organization / Location" class="input-field input-field-sm" />
+                  <input v-model="entry.period" placeholder="Period (e.g. Jan 2022 – Present)" class="input-field input-field-sm col-span-2" />
+                </div>
+                <textarea v-model="entry.description" placeholder="Details (use new lines for bullets, **bold** for emphasis)..." rows="3" class="input-field resize-none" />
+              </div>
+            </template>
+            <!-- Fallback: old text blob (if no entries but has text) -->
+            <div v-else-if="getCustomSection(sectionKey)?.text">
               <label class="text-xs block mb-1 text-foreground">Text</label>
               <textarea
                 :value="getCustomSection(sectionKey)?.text || ''"
@@ -408,6 +428,8 @@
                 class="input-field resize-none"
               />
             </div>
+            <!-- Empty state -->
+            <p v-else class="text-xs italic text-muted-foreground">No entries yet. Click Add to start.</p>
           </div>
         </template>
 
@@ -604,8 +626,15 @@
 import { ref, reactive, computed, watch, nextTick, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
 import api from '../../services/api';
+import { useEmployeeStore } from '../../stores/employee';
 import StepIndicator from '../../components/StepIndicator.vue';
 import TemplateMiniPreview from '../../components/TemplateMiniPreview.vue';
+
+const props = defineProps<{ candidateId?: string }>();
+const employeeStore = useEmployeeStore();
+const isEmployeeMode = computed(() => !!props.candidateId);
+const apiBase = computed(() => isEmployeeMode.value ? `/employee/candidates/${props.candidateId}/cv-builder` : '/cvs');
+const apiHeaders = computed(() => isEmployeeMode.value ? employeeStore.getAuthHeaders() : {});
 
 // ── Types ────────────────────────────────────────────────────────────────────
 type CvStyle = 'modern' | 'classic' | 'minimal';
@@ -615,12 +644,14 @@ type CvSectionKey = 'summary' | 'experience' | 'education' | 'skills' | `custom:
 
 interface ExpItem { id: string; company: string; role: string; period: string; description: string; }
 interface EduItem { id: string; institution: string; degree: string; period: string; details: string; }
-interface CustomSection { id: string; heading: string; text: string; }
+interface CustomSectionEntry { id: string; title: string; subtitle: string; period: string; description: string; }
+interface CustomSection { id: string; heading: string; text: string; entries: CustomSectionEntry[]; }
 interface EditorData {
   versionName: string; style: CvStyle; language: Language;
   photoDataUrl: string;
   sectionOrder: CvSectionKey[];
   customSections: CustomSection[];
+  contactOrder: string[];
   fullName: string; email: string; phone: string; location: string; nationality: string; linkedin: string; linkedinUrl: string; website: string; github: string; portfolio: string;
   signaturePlaceDate: string; signatureDataUrl: string;
   summary: string; experience: ExpItem[]; education: EduItem[]; skills: string;
@@ -700,11 +731,14 @@ function editorToHtml(d: EditorData): string {
       ? `<a href="${escapeHtml((d as any).linkedinUrl)}" style="color:inherit;text-decoration:underline">${escapeHtml(d.linkedin)}</a>`
       : escapeHtml(d.linkedin))
     : '';
-  const contactParts = [d.email, d.phone, d.location, d.nationality ? `Nationality: ${d.nationality}` : ''].filter(Boolean).map(escapeHtml);
-  if (linkedinDisplay) contactParts.push(linkedinDisplay);
-  if (d.website) contactParts.push(escapeHtml(d.website));
-  if (d.github) contactParts.push(escapeHtml(d.github));
-  if (d.portfolio) contactParts.push(escapeHtml(d.portfolio));
+  const cOrder = d.contactOrder?.length ? d.contactOrder : DEFAULT_CONTACT_ORDER;
+  const contactParts: string[] = [];
+  for (const key of cOrder) {
+    if (key === 'linkedin' && linkedinDisplay) { contactParts.push(linkedinDisplay); continue; }
+    if (key === 'nationality' && d.nationality) { contactParts.push(escapeHtml(`Nationality: ${d.nationality}`)); continue; }
+    const val = (d as any)[key];
+    if (val) contactParts.push(escapeHtml(val));
+  }
   const contact = contactParts.join(' · ');
   const photo = d.photoDataUrl?.trim()
     ? `<img data-role="profile-photo" src="${d.photoDataUrl.trim()}" alt="Profile photo" style="width:96px;height:96px;border-radius:4px;object-fit:cover;border:2px solid rgba(148,163,184,.5)" />`
@@ -741,9 +775,21 @@ function editorToHtml(d: EditorData): string {
   for (const cs of d.customSections ?? []) {
     const key = `custom:${cs.id}`;
     const heading = escapeHtml(cs.heading?.trim() || 'Section');
-    const rawText = cs.text ?? '';
-    const renderedText = rawText.trim() ? (isHtml(rawText) ? rawText : `<p>${boldify(escapeHtml(rawText)).replace(/\n/g,'<br>')}</p>`) : '';
-    sections[key] = `<section data-cv-section="${key}"><h2>${heading}</h2>${renderedText}</section>`;
+    let body = '';
+    if (cs.entries?.length) {
+      body = cs.entries.filter(e => e.title || e.description).map(e => {
+        const lines = e.description.split('\n').map(l => l.replace(/^[-•]\s*/, '').trim()).filter(Boolean);
+        const desc = lines.length > 1
+          ? `<ul style="margin:4px 0;padding-left:18px">${lines.map(l => `<li>${boldify(escapeHtml(l))}</li>`).join('')}</ul>`
+          : lines[0] ? `<p style="margin:4px 0">${boldify(escapeHtml(lines[0]))}</p>` : '';
+        const titleLine = [e.title, e.subtitle].filter(Boolean).join(' — ');
+        return `<div style="margin-bottom:10px">${titleLine ? `<strong>${escapeHtml(titleLine)}</strong>` : ''}${e.period ? `<br><span style="font-size:.8em;opacity:.7">${escapeHtml(e.period)}</span>` : ''}${desc}</div>`;
+      }).join('');
+    } else {
+      const rawText = cs.text ?? '';
+      body = rawText.trim() ? (isHtml(rawText) ? rawText : `<p>${boldify(escapeHtml(rawText)).replace(/\n/g,'<br>')}</p>`) : '';
+    }
+    sections[key] = `<section data-cv-section="${key}"><h2>${heading}</h2>${body}</section>`;
   }
 
   const order = (d.sectionOrder?.length ? d.sectionOrder : ['summary','experience','education','skills']).filter(k => k in sections);
@@ -777,20 +823,37 @@ const extractError = ref('');
 const currentTip = ref('');
 const isSyncing = ref(false);
 const isExporting = ref(false);
+const enhancing = ref(false);
 const addSectionOpen = ref(false);
 const saveDialogOpen = ref(false);
 const saveName = ref('');
 const editingVersionId = ref<string | null>(null);
 const dragKey = ref<string>('');
 const dragOverKey = ref<string>('');
+const contactDragKey = ref<string>('');
+const contactDragOverKey = ref<string>('');
 
 const cvVersions = ref<CvVersion[]>([]);
+
+const DEFAULT_CONTACT_ORDER = ['email','phone','location','nationality','linkedin','website','github','portfolio'];
+
+const CONTACT_FIELDS: Record<string, { label: string; model: keyof EditorData; placeholder: string }> = {
+  email:       { label: 'Email',       model: 'email',       placeholder: 'anna@example.com' },
+  phone:       { label: 'Phone',       model: 'phone',       placeholder: '+49 123 456 789' },
+  location:    { label: 'Location',    model: 'location',    placeholder: 'Berlin, Germany' },
+  nationality: { label: 'Nationality', model: 'nationality', placeholder: 'e.g. German' },
+  linkedin:    { label: 'LinkedIn',    model: 'linkedin',    placeholder: 'linkedin.com/in/anna' },
+  website:     { label: 'Website',     model: 'website',     placeholder: 'anna.com' },
+  github:      { label: 'GitHub',      model: 'github',      placeholder: 'github.com/anna' },
+  portfolio:   { label: 'Portfolio',   model: 'portfolio',   placeholder: 'anna.dev' },
+};
 
 const emptyEditor = (): EditorData => ({
   versionName: 'My CV', style: 'modern', language: 'EN',
   photoDataUrl: '',
   sectionOrder: ['summary', 'experience', 'education', 'skills'],
   customSections: [],
+  contactOrder: [...DEFAULT_CONTACT_ORDER],
   fullName: '', email: '', phone: '', location: '', nationality: '', linkedin: '', linkedinUrl: '', website: '', github: '', portfolio: '',
   signaturePlaceDate: '', signatureDataUrl: '',
   summary: '', experience: [], education: [], skills: '',
@@ -852,9 +915,20 @@ function removeCustomSection(sectionKey: string) {
 function addCustomSection(heading: string) {
   const id = `sec_${Date.now()}`;
   const key = `custom:${id}` as CvSectionKey;
-  editorData.customSections.push({ id, heading, text: '' });
+  editorData.customSections.push({ id, heading, text: '', entries: [] });
   editorData.sectionOrder.push(key);
   addSectionOpen.value = false;
+}
+
+function addCustomEntry(sectionKey: string) {
+  const id = sectionKey.slice('custom:'.length);
+  const cs = editorData.customSections.find(x => x.id === id);
+  if (cs) cs.entries.push({ id: `entry_${Date.now()}`, title: '', subtitle: '', period: '', description: '' });
+}
+function removeCustomEntry(sectionKey: string, entryIdx: number) {
+  const id = sectionKey.slice('custom:'.length);
+  const cs = editorData.customSections.find(x => x.id === id);
+  if (cs) cs.entries.splice(entryIdx, 1);
 }
 
 // ── Drag & drop section reorder ───────────────────────────────────────────────
@@ -888,6 +962,32 @@ function dragDrop(toKey: string) {
   const [picked] = order.splice(fromIdx, 1);
   order.splice(toIdx, 0, picked);
   editorData.sectionOrder = order;
+}
+
+// ── Contact drag & drop reorder ──────────────────────────────────────────────
+function contactDragStart(key: string, e: DragEvent) {
+  contactDragKey.value = key;
+  if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
+}
+function contactDragOver(key: string, e: DragEvent) {
+  e.preventDefault();
+  if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+  contactDragOverKey.value = key;
+}
+function contactDragLeave() { contactDragOverKey.value = ''; }
+function contactDragEnd() { contactDragKey.value = ''; contactDragOverKey.value = ''; }
+function contactDragDrop(toKey: string) {
+  const from = contactDragKey.value;
+  contactDragOverKey.value = '';
+  contactDragKey.value = '';
+  if (!from || from === toKey) return;
+  const order = [...editorData.contactOrder];
+  const fromIdx = order.indexOf(from);
+  const toIdx = order.indexOf(toKey);
+  if (fromIdx < 0 || toIdx < 0) return;
+  const [picked] = order.splice(fromIdx, 1);
+  order.splice(toIdx, 0, picked);
+  editorData.contactOrder = order;
 }
 
 // ── Photo ─────────────────────────────────────────────────────────────────────
@@ -964,7 +1064,7 @@ async function onCvFileSelect(e: Event) {
     formData.append('file', file);
     formData.append('title', file.name.replace(/\.[^.]+$/, '') || 'My CV');
 
-    const { data } = await api.post('/cvs', formData);
+    const { data } = await api.post(apiBase.value, formData, { timeout: 180000, headers: apiHeaders.value });
     const cv = data.data;
     const parsed = cv?.parsedData;
     // Track the backend CV id so subsequent saves update the same record
@@ -986,133 +1086,7 @@ async function onCvFileSelect(e: Event) {
     extractStep.value = EXTRACT_STEPS.length - 1;
 
     if (parsed) {
-      const p = parsed.personal || parsed;
-      const customSections: CustomSection[] = [];
-
-      // Use section order from AI if available, otherwise default
-      const aiOrder: string[] = parsed.section_order?.length
-        ? parsed.section_order
-        : ['summary', 'experience', 'education', 'skills', 'certifications', 'languages', 'leadership', 'interests', 'additional_information'];
-      const sectionOrder: CvSectionKey[] = aiOrder.filter(k => ['summary', 'experience', 'education', 'skills'].includes(k)) as CvSectionKey[];
-
-      // Build custom sections and insert them at the correct position based on AI section order
-      const ts = Date.now();
-      const customSectionMap: Record<string, { heading: string; text: string; id: string } | null> = {
-        certifications: parsed.certifications?.length ? {
-          id: `sec_certs_${ts}`,
-          heading: 'Professional Qualifications',
-          text: parsed.certifications.map((c: any) =>
-            [c.name, c.institution, c.dates, c.details].filter(Boolean).join(' — ')
-          ).join('\n'),
-        } : null,
-        languages: parsed.languages?.length ? {
-          id: `sec_langs_${ts + 1}`,
-          heading: 'Language Skills',
-          text: parsed.languages.map((l: any) =>
-            l.level ? `${l.language} (${l.level})` : l.language
-          ).join(', '),
-        } : null,
-        leadership: parsed.leadership?.length ? {
-          id: `sec_lead_${ts + 2}`,
-          heading: 'Leadership & Affiliations',
-          text: parsed.leadership.map((l: any) =>
-            [l.title, l.organization, l.dates, l.description].filter(Boolean).join(' — ')
-          ).join('\n'),
-        } : null,
-        publications: parsed.publications?.length ? {
-          id: `sec_pubs_${ts + 3}`,
-          heading: 'Publications',
-          text: parsed.publications.map((p: any) =>
-            [p.citation, p.year ? `(${p.year})` : ''].filter(Boolean).join(' ')
-          ).join('\n'),
-        } : null,
-        conferences: parsed.conferences?.length ? {
-          id: `sec_conf_${ts + 4}`,
-          heading: 'Conferences, Presentations & Trainings',
-          text: parsed.conferences.map((c: any) =>
-            [c.dates, c.title, c.location, c.description].filter(Boolean).join(' — ')
-          ).join('\n'),
-        } : null,
-        references: parsed.references?.length ? {
-          id: `sec_refs_${ts + 5}`,
-          heading: 'References',
-          text: parsed.references.map((r: any) =>
-            [r.name, r.title, r.organization, r.phone, r.email].filter(Boolean).join(', ')
-          ).join('\n'),
-        } : null,
-        research_interests: parsed.research_interests ? {
-          id: `sec_ri_${ts + 6}`,
-          heading: 'Research Interests',
-          text: parsed.research_interests,
-        } : null,
-        interests: parsed.interests ? {
-          id: `sec_int_${ts + 7}`,
-          heading: 'Interests',
-          text: parsed.interests,
-        } : null,
-        additional_information: parsed.additional_information ? {
-          id: `sec_add_${ts + 8}`,
-          heading: 'Additional Information',
-          text: parsed.additional_information,
-        } : null,
-      };
-
-      // Also map any custom_sections from AI
-      if (parsed.custom_sections?.length) {
-        for (let i = 0; i < parsed.custom_sections.length; i++) {
-          const cs = parsed.custom_sections[i];
-          if (cs.heading && cs.content) {
-            const id = `sec_ai_${ts + 10 + i}`;
-            customSectionMap[`custom_ai_${i}`] = { id, heading: cs.heading, text: cs.content };
-            // Append to AI order if not already there
-            if (!aiOrder.includes(`custom_ai_${i}`)) aiOrder.push(`custom_ai_${i}`);
-          }
-        }
-      }
-
-      // Insert custom sections at position matching AI order
-      for (const key of aiOrder) {
-        if (['summary', 'experience', 'education', 'skills'].includes(key)) continue;
-        const cs = customSectionMap[key];
-        if (cs) {
-          customSections.push(cs);
-          sectionOrder.push(`custom:${cs.id}` as CvSectionKey);
-        }
-      }
-
-      Object.assign(editorData, {
-        ...emptyEditor(),
-        sectionOrder,
-        customSections,
-        photoDataUrl: parsed.photoDataUrl || '',
-        signatureDataUrl: parsed.signatureDataUrl || '',
-        fullName: p.name || '',
-        email: p.email || '',
-        phone: p.phone || '',
-        location: p.location || '',
-        nationality: p.nationality || '',
-        linkedin: p.linkedin || '',
-        linkedinUrl: p.linkedin_url || '',
-        website: p.website || '',
-        github: p.github || '',
-        portfolio: p.portfolio || '',
-        summary: parsed.summary || '',
-        skills: Array.isArray(parsed.skills) ? parsed.skills.join(', ') : (parsed.skills || ''),
-        experience: (parsed.experience || []).map((exp: any) => ({
-          id: `exp_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-          company: exp.company || '',
-          role: exp.title || '',
-          period: exp.dates || '',
-          description: (exp.description || '').split('\n').map((l: string) => l.replace(/^[-•]\s*/, '').trim()).filter(Boolean).join('\n'),
-        })),
-        education: (parsed.education || []).map((edu: any) => ({
-          id: `edu_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-          institution: edu.institution || '',
-          degree: edu.degree || '',
-          period: edu.dates || '',
-          details: [edu.gpa ? `GPA: ${edu.gpa}` : '', edu.courses ? `Courses: ${edu.courses}` : '', edu.awards ? `Awards: ${edu.awards}` : '', edu.details || ''].filter(Boolean).join('\n'),
-        })),
-      });
+      applyParsedDataToEditor(parsed);
     }
 
     await new Promise(r => setTimeout(r, 500));
@@ -1126,6 +1100,146 @@ async function onCvFileSelect(e: Event) {
   }
 }
 
+// ── Map AI-parsed data into editorData (used by upload + enhance) ─────────────
+function applyParsedDataToEditor(parsed: any) {
+  const p = parsed.personal || parsed;
+  const customSections: CustomSection[] = [];
+
+  const aiOrder: string[] = parsed.section_order?.length
+    ? parsed.section_order
+    : ['summary', 'experience', 'education', 'skills', 'certifications', 'languages', 'leadership', 'interests', 'additional_information'];
+  const sectionOrder: CvSectionKey[] = aiOrder.filter(k => ['summary', 'experience', 'education', 'skills'].includes(k)) as CvSectionKey[];
+
+  // Build custom sections and insert them at the correct position based on AI section order
+  const ts = Date.now();
+  const uid = () => Math.random().toString(36).slice(2, 7);
+  const customSectionMap: Record<string, { heading: string; text: string; entries: CustomSectionEntry[]; id: string } | null> = {
+    certifications: parsed.certifications?.length ? {
+      id: `sec_certs_${ts}`,
+      heading: 'Professional Qualifications',
+      text: '',
+      entries: parsed.certifications.map((c: any) => ({
+        id: `entry_${ts}_${uid()}`, title: c.name || '', subtitle: c.institution || '', period: c.dates || '', description: c.details || '',
+      })),
+    } : null,
+    languages: parsed.languages?.length ? {
+      id: `sec_langs_${ts + 1}`,
+      heading: 'Language Skills',
+      text: parsed.languages.map((l: any) => l.level ? `${l.language} (${l.level})` : l.language).join(', '),
+      entries: [],
+    } : null,
+    leadership: parsed.leadership?.length ? {
+      id: `sec_lead_${ts + 2}`,
+      heading: 'Leadership & Affiliations',
+      text: '',
+      entries: parsed.leadership.map((l: any) => ({
+        id: `entry_${ts}_${uid()}`, title: l.title || '', subtitle: l.organization || '', period: l.dates || '', description: l.description || '',
+      })),
+    } : null,
+    publications: parsed.publications?.length ? {
+      id: `sec_pubs_${ts + 3}`,
+      heading: 'Publications',
+      text: '',
+      entries: parsed.publications.map((pub: any) => ({
+        id: `entry_${ts}_${uid()}`, title: pub.citation || '', subtitle: '', period: pub.year ? `(${pub.year})` : '', description: '',
+      })),
+    } : null,
+    conferences: parsed.conferences?.length ? {
+      id: `sec_conf_${ts + 4}`,
+      heading: 'Conferences, Presentations & Trainings',
+      text: '',
+      entries: parsed.conferences.map((c: any) => ({
+        id: `entry_${ts}_${uid()}`, title: c.title || '', subtitle: c.location || '', period: c.dates || '', description: c.description || '',
+      })),
+    } : null,
+    references: parsed.references?.length ? {
+      id: `sec_refs_${ts + 5}`,
+      heading: 'References',
+      text: '',
+      entries: parsed.references.map((r: any) => ({
+        id: `entry_${ts}_${uid()}`, title: r.name || '', subtitle: [r.title, r.organization].filter(Boolean).join(', '), period: '', description: [r.phone, r.email].filter(Boolean).join('\n'),
+      })),
+    } : null,
+    research_interests: parsed.research_interests ? {
+      id: `sec_ri_${ts + 6}`,
+      heading: 'Research Interests',
+      text: parsed.research_interests,
+      entries: [],
+    } : null,
+    interests: parsed.interests ? {
+      id: `sec_int_${ts + 7}`,
+      heading: 'Interests',
+      text: parsed.interests,
+      entries: [],
+    } : null,
+    additional_information: parsed.additional_information ? {
+      id: `sec_add_${ts + 8}`,
+      heading: 'Additional Information',
+      text: parsed.additional_information,
+      entries: [],
+    } : null,
+  };
+
+  // Also map any custom_sections from AI
+  if (parsed.custom_sections?.length) {
+    for (let i = 0; i < parsed.custom_sections.length; i++) {
+      const cs = parsed.custom_sections[i];
+      if (cs.heading && (cs.content || cs.entries?.length)) {
+        const id = `sec_ai_${ts + 10 + i}`;
+        const entries: CustomSectionEntry[] = cs.entries?.length
+          ? cs.entries.map((e: any) => ({ id: `entry_${ts}_${uid()}`, title: e.title || '', subtitle: e.subtitle || '', period: e.period || '', description: e.description || '' }))
+          : [];
+        customSectionMap[`custom_ai_${i}`] = { id, heading: cs.heading, text: entries.length ? '' : (cs.content || ''), entries };
+        if (!aiOrder.includes(`custom_ai_${i}`)) aiOrder.push(`custom_ai_${i}`);
+      }
+    }
+  }
+
+  // Insert custom sections at position matching AI order
+  for (const key of aiOrder) {
+    if (['summary', 'experience', 'education', 'skills'].includes(key)) continue;
+    const cs = customSectionMap[key];
+    if (cs) {
+      customSections.push(cs);
+      sectionOrder.push(`custom:${cs.id}` as CvSectionKey);
+    }
+  }
+
+  Object.assign(editorData, {
+    ...emptyEditor(),
+    sectionOrder,
+    customSections,
+    photoDataUrl: parsed.photoDataUrl || '',
+    signatureDataUrl: parsed.signatureDataUrl || '',
+    fullName: p.name || '',
+    email: p.email || '',
+    phone: p.phone || '',
+    location: p.location || '',
+    nationality: p.nationality || '',
+    linkedin: p.linkedin || '',
+    linkedinUrl: p.linkedin_url || '',
+    website: p.website || '',
+    github: p.github || '',
+    portfolio: p.portfolio || '',
+    summary: parsed.summary || '',
+    skills: Array.isArray(parsed.skills) ? parsed.skills.join(', ') : (parsed.skills || ''),
+    experience: (parsed.experience || []).map((exp: any) => ({
+      id: `exp_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      company: exp.company || '',
+      role: exp.title || '',
+      period: exp.dates || '',
+      description: (exp.description || '').split('\n').map((l: string) => l.replace(/^[-•]\s*/, '').trim()).filter(Boolean).join('\n'),
+    })),
+    education: (parsed.education || []).map((edu: any) => ({
+      id: `edu_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      institution: edu.institution || '',
+      degree: edu.degree || '',
+      period: edu.dates || '',
+      details: [edu.gpa ? `GPA: ${edu.gpa}` : '', edu.courses ? `Courses: ${edu.courses}` : '', edu.awards ? `Awards: ${edu.awards}` : '', edu.details || ''].filter(Boolean).join('\n'),
+    })),
+  });
+}
+
 // ── Export PDF ────────────────────────────────────────────────────────────────
 async function handleExportPdf() {
   isExporting.value = true;
@@ -1133,11 +1247,11 @@ async function handleExportPdf() {
     const contentHtml = editorToHtml(editorData);
     const filename = `${(editorData.fullName || 'CV').replace(/[^a-z0-9_\- ]+/gi, '_')}.pdf`;
 
-    const response = await api.post('/cvs/export', {
+    const response = await api.post(`${apiBase.value}/export`, {
       contentHtml,
       style: editorData.style,
       filename,
-    }, { responseType: 'blob' });
+    }, { responseType: 'blob', headers: apiHeaders.value });
 
     // Download the blob
     const blob = new Blob([response.data], { type: 'application/pdf' });
@@ -1156,6 +1270,39 @@ async function handleExportPdf() {
   }
 }
 
+// ── Enhance with Arbeitly (employee mode) ────────────────────────────────────
+async function enhanceWithArbeitly() {
+  if (!isEmployeeMode.value || !props.candidateId || !editingVersionId.value) return;
+  enhancing.value = true;
+  try {
+    // Persist current editor state first so the backend has fresh parsedData to work with.
+    // The enhance endpoint reads cv.parsedData from the DB.
+    const content = editorToHtml(editorData);
+    await api.put(`${apiBase.value}/${editingVersionId.value}`, {
+      title: editorData.versionName || 'My CV',
+      editorData: { ...editorData },
+      htmlContent: content,
+      style: editorData.style,
+      language: editorData.language,
+    }, { headers: apiHeaders.value });
+
+    const { data } = await api.post(
+      `/employee/candidates/${props.candidateId}/cvs/${editingVersionId.value}/enhance`,
+      {},
+      { headers: apiHeaders.value, timeout: 180000 }
+    );
+    const enhanced = data?.data;
+    if (enhanced && typeof enhanced === 'object') {
+      applyParsedDataToEditor(enhanced);
+    }
+  } catch (err: any) {
+    console.error('Enhancement failed:', err);
+    alert(err?.response?.data?.error || 'Enhancement failed.');
+  } finally {
+    enhancing.value = false;
+  }
+}
+
 // ── Actions ───────────────────────────────────────────────────────────────────
 function startCreate() {
   Object.assign(editorData, emptyEditor());
@@ -1170,23 +1317,23 @@ async function handleSaveVersion() {
 
   try {
     if (editingVersionId.value) {
-      await api.put(`/cvs/${editingVersionId.value}`, {
+      await api.put(`${apiBase.value}/${editingVersionId.value}`, {
         title: name,
         editorData: editorState,
         htmlContent: content,
         style: editorData.style,
         language: editorData.language,
-      });
+      }, { headers: apiHeaders.value });
       const v = cvVersions.value.find(v => v.id === editingVersionId.value);
       if (v) { v.name = name; v.label = name; v.content = content; v.style = editorData.style; v.language = editorData.language; }
     } else {
-      const { data } = await api.post('/cvs/create', {
+      const { data } = await api.post(`${apiBase.value}/create`, {
         title: name,
         editorData: editorState,
         htmlContent: content,
         style: editorData.style,
         language: editorData.language,
-      });
+      }, { headers: apiHeaders.value });
       const cv = data.data;
       editingVersionId.value = cv.id;
       cvVersions.value.push({
@@ -1208,7 +1355,7 @@ async function handleSaveVersion() {
 
 async function openCvVersion(v: CvVersion) {
   try {
-    const { data } = await api.get(`/cvs/${v.id}`);
+    const { data } = await api.get(`${apiBase.value}/${v.id}`, { headers: apiHeaders.value });
     const cv = data.data;
     if (cv.editorData) {
       Object.assign(editorData, {
@@ -1233,7 +1380,7 @@ async function openCvVersion(v: CvVersion) {
 
 async function deleteCvVersion(id: string) {
   try {
-    await api.delete(`/cvs/${id}`);
+    await api.delete(`${apiBase.value}/${id}`, { headers: apiHeaders.value });
     cvVersions.value = cvVersions.value.filter(v => v.id !== id);
   } catch (err) {
     console.error('Failed to delete CV:', err);
@@ -1242,7 +1389,7 @@ async function deleteCvVersion(id: string) {
 
 onMounted(async () => {
   try {
-    const { data } = await api.get('/cvs');
+    const { data } = await api.get(apiBase.value, { headers: apiHeaders.value });
     cvVersions.value = (data.data || []).map((cv: any) => ({
       id: cv.id,
       name: cv.title,

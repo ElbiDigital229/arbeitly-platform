@@ -1,11 +1,8 @@
-import Anthropic from '@anthropic-ai/sdk';
 import { prisma } from '../config/prisma.js';
-import { env } from '../config/env.js';
 import { adminPromptRepository } from '../repositories/admin-prompt.repository.js';
 import { coverLetterRepository } from '../repositories/cover-letter.repository.js';
 import { HttpError } from '../errors/HttpError.js';
-
-const getClient = () => new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
+import { aiComplete } from './external/ai-client.js';
 
 export const clService = {
   async getCoverLetters(userId: string) {
@@ -46,17 +43,8 @@ export const clService = {
       ? `${systemPrompt}\n\nAdditional instructions: ${customPrompt}\n\nCOVER LETTER:\n${cl.content}`
       : `${systemPrompt}\n\nCOVER LETTER:\n${cl.content}`;
 
-    const client = getClient();
-    const response = await client.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 4096,
-      messages: [{ role: 'user', content: userMessage }],
-    });
-
-    const textContent = response.content.find(c => c.type === 'text');
-    if (!textContent || textContent.type !== 'text') throw new Error('No AI response');
-
-    return textContent.text.trim();
+    const text = await aiComplete(userMessage, { maxTokens: 4096 });
+    return text.trim();
   },
 
   async generateForJob(userId: string, jobTitle: string, company: string, jobDescription: string) {
@@ -72,20 +60,11 @@ export const clService = {
       baseCL ? `BASE COVER LETTER:\n${baseCL.content}` : '',
     ].filter(Boolean).join('\n');
 
-    const client = getClient();
-    const response = await client.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 4096,
-      messages: [{
-        role: 'user',
-        content: `${systemPrompt}\n\n${context}\n\nJOB TITLE: ${jobTitle}\nCOMPANY: ${company}\nJOB DESCRIPTION:\n${jobDescription}`,
-      }],
-    });
-
-    const textContent = response.content.find(c => c.type === 'text');
-    if (!textContent || textContent.type !== 'text') throw new Error('No AI response');
-
-    return textContent.text.trim();
+    const text = await aiComplete(
+      `${systemPrompt}\n\n${context}\n\nJOB TITLE: ${jobTitle}\nCOMPANY: ${company}\nJOB DESCRIPTION:\n${jobDescription}`,
+      { maxTokens: 4096 },
+    );
+    return text.trim();
   },
 
   async createVersion(baseClId: string, title: string, content: string) {

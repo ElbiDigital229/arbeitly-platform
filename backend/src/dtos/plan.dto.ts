@@ -6,6 +6,7 @@ export const CreatePlanDto = z.object({
   price: z.number().min(0, 'Price must be positive'),
   currency: z.string().default('EUR'),
   applicationLimit: z.number().int().min(0, 'Application limit must be positive'),
+  cvLimit: z.number().int().min(0, 'CV limit must be positive').default(10),
   features: z.array(z.object({ text: z.string(), included: z.boolean() })).default([]),
   isActive: z.boolean().default(true),
   isPopular: z.boolean().default(false),

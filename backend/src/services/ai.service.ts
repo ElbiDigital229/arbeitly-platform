@@ -1,6 +1,6 @@
-import Anthropic from '@anthropic-ai/sdk';
+import type Anthropic from '@anthropic-ai/sdk';
 import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
-import { env } from '../config/env.js';
+import { aiComplete, parseAiJson } from './external/ai-client.js';
 
 async function extractTextFromPdf(buffer: Buffer): Promise<string> {
   const data = new Uint8Array(buffer);
@@ -150,14 +150,18 @@ export interface ParsedCVData {
   custom_sections: {
     heading: string;
     content: string;
+    entries?: {
+      title: string;
+      subtitle: string;
+      period: string;
+      description: string;
+    }[];
   }[];
   photoDataUrl?: string;
 }
 
 export const aiService = {
   async parseCV(fileBuffer: Buffer, mimeType: string): Promise<ParsedCVData> {
-    const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
-
     const prompt = `Extract ALL content from this CV/resume into JSON. Return ONLY valid JSON, no markdown fences, no extra text.
 
 CRITICAL RULES:
@@ -174,11 +178,11 @@ CRITICAL RULES:
 - "conferences": Extract ALL conferences, presentations, workshops, trainings attended or facilitated — each as a separate entry with title, location, dates, and description.
 - "references" / "referees": Extract ALL referees/references with name, title, organization, phone, email.
 - "research_interests": Extract research interests or areas of specialization as a single string.
-- "custom_sections": For any section in the CV that does not map to the predefined fields (e.g. "Professional Affiliations", "Volunteering", "Projects", "Awards"), create a custom section with heading and content (content as a string with \\n between items).
+- "custom_sections": For any section in the CV that does not map to the predefined fields (e.g. "Professional Affiliations", "Volunteering", "Projects", "Awards"), create a custom section with heading. For sections with multiple structured items, provide an "entries" array with {title, subtitle, period, description} for each item. For simple text-only sections, use "content" as a string with \\n between items.
 - When key figures appear in text (monetary amounts, percentages, notable achievements), wrap them in **bold** markers.
 
 JSON structure:
-{"personal":{"name":"","email":"","phone":"","location":"","nationality":"","date_of_birth":"","marital_status":"","linkedin":"","linkedin_url":"","website":"","github":"","portfolio":""},"section_order":[],"summary":"","experience":[{"title":"","company":"","dates":"","description":""}],"education":[{"degree":"","institution":"","dates":"","gpa":"","courses":"","awards":"","details":""}],"certifications":[{"name":"","institution":"","dates":"","details":""}],"skills":[],"languages":[{"language":"","level":""}],"leadership":[{"title":"","organization":"","dates":"","description":""}],"publications":[{"citation":"","year":""}],"conferences":[{"title":"","location":"","dates":"","description":""}],"references":[{"name":"","title":"","organization":"","phone":"","email":""}],"research_interests":"","interests":"","additional_information":"","custom_sections":[{"heading":"","content":""}]}`;
+{"personal":{"name":"","email":"","phone":"","location":"","nationality":"","date_of_birth":"","marital_status":"","linkedin":"","linkedin_url":"","website":"","github":"","portfolio":""},"section_order":[],"summary":"","experience":[{"title":"","company":"","dates":"","description":""}],"education":[{"degree":"","institution":"","dates":"","gpa":"","courses":"","awards":"","details":""}],"certifications":[{"name":"","institution":"","dates":"","details":""}],"skills":[],"languages":[{"language":"","level":""}],"leadership":[{"title":"","organization":"","dates":"","description":""}],"publications":[{"citation":"","year":""}],"conferences":[{"title":"","location":"","dates":"","description":""}],"references":[{"name":"","title":"","organization":"","phone":"","email":""}],"research_interests":"","interests":"","additional_information":"","custom_sections":[{"heading":"","content":"","entries":[{"title":"","subtitle":"","period":"","description":""}]}]}`;
 
     let messageContent: Anthropic.MessageParam['content'];
 
@@ -206,76 +210,38 @@ JSON structure:
       messageContent = [{ type: 'text', text: `${prompt}\n\nCV TEXT:\n${fileBuffer.toString('utf-8')}` }];
     }
 
-    const response = await client.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 16384,
-      messages: [{ role: 'user', content: messageContent }],
-    });
+    const rawText = await aiComplete(messageContent, { useCvParseModel: true });
+    const parsed = parseAiJson<ParsedCVData>(rawText);
 
-    console.log('[AI] stop_reason:', response.stop_reason, '| usage:', JSON.stringify(response.usage));
-
-    if (response.stop_reason === 'max_tokens') {
-      throw new Error('CV too large — AI response was truncated. Try a shorter CV or reduce details.');
-    }
-
-    const textContent = response.content.find((c) => c.type === 'text');
-    if (!textContent || textContent.type !== 'text') {
-      throw new Error('No text response from AI');
-    }
-
-    // Strip markdown code fences if present
-    let jsonText = textContent.text.trim();
-    if (jsonText.startsWith('```')) {
-      jsonText = jsonText.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```\s*$/, '');
-    }
-
-    // Extract the JSON object — find the outermost { ... }
-    const firstBrace = jsonText.indexOf('{');
-    const lastBrace = jsonText.lastIndexOf('}');
-    if (firstBrace !== -1 && lastBrace > firstBrace) {
-      jsonText = jsonText.slice(firstBrace, lastBrace + 1);
-    }
-
-    // Fix common JSON issues from LLM output
-    // Remove trailing commas before } or ]
-    jsonText = jsonText.replace(/,\s*([}\]])/g, '$1');
-
-    try {
-      const parsed: ParsedCVData = JSON.parse(jsonText);
-
-      // Enrich with PDF hyperlinks if available
-      if (mimeType === 'application/pdf') {
-        try {
-          const links = await extractLinksFromPdf(fileBuffer);
-          if (links.length > 0) {
-            // Find LinkedIn URL
-            const linkedinLink = links.find(l => l.url.includes('linkedin.com'));
-            if (linkedinLink && !parsed.personal.linkedin_url) {
-              parsed.personal.linkedin_url = linkedinLink.url;
-              if (!parsed.personal.linkedin) {
-                parsed.personal.linkedin = linkedinLink.text || parsed.personal.name;
-              }
-            }
-            // Find other URLs (website, github, portfolio)
-            for (const link of links) {
-              if (link.url.includes('linkedin.com')) continue;
-              if (link.url.includes('github.com') && !parsed.personal.github) {
-                parsed.personal.github = link.url;
-              } else if (!parsed.personal.website && !link.url.includes('mailto:')) {
-                parsed.personal.website = link.url;
-              }
+    // Enrich with PDF hyperlinks if available
+    if (mimeType === 'application/pdf') {
+      try {
+        const links = await extractLinksFromPdf(fileBuffer);
+        if (links.length > 0) {
+          // Find LinkedIn URL
+          const linkedinLink = links.find((l) => l.url.includes('linkedin.com'));
+          if (linkedinLink && !parsed.personal.linkedin_url) {
+            parsed.personal.linkedin_url = linkedinLink.url;
+            if (!parsed.personal.linkedin) {
+              parsed.personal.linkedin = linkedinLink.text || parsed.personal.name;
             }
           }
-          console.log('[AI] Extracted PDF links:', links.length);
-        } catch (err: any) {
-          console.error('Link extraction failed (non-fatal):', err?.message);
+          // Find other URLs (website, github, portfolio)
+          for (const link of links) {
+            if (link.url.includes('linkedin.com')) continue;
+            if (link.url.includes('github.com') && !parsed.personal.github) {
+              parsed.personal.github = link.url;
+            } else if (!parsed.personal.website && !link.url.includes('mailto:')) {
+              parsed.personal.website = link.url;
+            }
+          }
         }
+        console.log('[AI] Extracted PDF links:', links.length);
+      } catch (err: any) {
+        console.error('Link extraction failed (non-fatal):', err?.message);
       }
-
-      return parsed;
-    } catch (parseErr) {
-      console.error('JSON parse failed. Raw response (first 500 chars):', jsonText.slice(0, 500));
-      throw parseErr;
     }
+
+    return parsed;
   },
 };

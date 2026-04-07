@@ -4,6 +4,8 @@ import { comparePassword, hashPassword } from '../utils/hash.js';
 import { signToken } from '../utils/jwt.js';
 import { faqRepository } from '../repositories/faq.repository.js';
 import { activityService } from './activity.service.js';
+import { cvService } from './cv.service.js';
+import { candidateFileService } from './candidate-file.service.js';
 
 export const employeeService = {
   async signin(email: string, password: string) {
@@ -169,6 +171,7 @@ export const employeeService = {
       dummyPassword: profile.dummyPassword,
       preferredLanguage: profile.preferredLanguage,
       onboardingCompleted: profile.onboardingCompleted,
+      onboardingData: profile.onboardingData,
     };
   },
 
@@ -181,6 +184,58 @@ export const employeeService = {
       },
       orderBy: [{ isBase: 'desc' }, { createdAt: 'desc' }],
     });
+  },
+
+  // CV Builder mirror methods — reuse cvService with candidate's userId
+  async uploadCvForCandidate(employeeId: string, candidateId: string, title: string, file: Express.Multer.File) {
+    await this.verifyAssignment(employeeId, candidateId);
+    return cvService.uploadAndParseCV(candidateId, title, file);
+  },
+
+  async createCvForCandidate(employeeId: string, candidateId: string, dto: any) {
+    await this.verifyAssignment(employeeId, candidateId);
+    return cvService.createCV(candidateId, dto);
+  },
+
+  async listCvsForCandidate(employeeId: string, candidateId: string) {
+    await this.verifyAssignment(employeeId, candidateId);
+    return cvService.getCVs(candidateId);
+  },
+
+  async getCvForCandidate(employeeId: string, candidateId: string, cvId: string) {
+    await this.verifyAssignment(employeeId, candidateId);
+    return cvService.getCVById(candidateId, cvId);
+  },
+
+  async updateCvForCandidate(employeeId: string, candidateId: string, cvId: string, dto: any) {
+    await this.verifyAssignment(employeeId, candidateId);
+    return cvService.updateCV(candidateId, cvId, dto);
+  },
+
+  async deleteCvForCandidate(employeeId: string, candidateId: string, cvId: string) {
+    await this.verifyAssignment(employeeId, candidateId);
+    return cvService.deleteCV(candidateId, cvId);
+  },
+
+  // Generic file uploads
+  async listCandidateFiles(employeeId: string, candidateId: string) {
+    await this.verifyAssignment(employeeId, candidateId);
+    return candidateFileService.list(candidateId);
+  },
+
+  async uploadCandidateFile(employeeId: string, candidateId: string, file: Express.Multer.File, label?: string) {
+    await this.verifyAssignment(employeeId, candidateId);
+    return candidateFileService.upload(candidateId, employeeId, file, label);
+  },
+
+  async downloadCandidateFile(employeeId: string, candidateId: string, fileId: string) {
+    await this.verifyAssignment(employeeId, candidateId);
+    return candidateFileService.getDownloadStream(candidateId, fileId);
+  },
+
+  async deleteCandidateFile(employeeId: string, candidateId: string, fileId: string) {
+    await this.verifyAssignment(employeeId, candidateId);
+    return candidateFileService.delete(candidateId, fileId, employeeId);
   },
 
   async getCandidateCLs(employeeId: string, candidateId: string) {

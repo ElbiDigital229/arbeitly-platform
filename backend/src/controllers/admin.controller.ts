@@ -1,109 +1,121 @@
-import type { RequestHandler } from 'express';
 import { adminService } from '../services/admin.service.js';
+import { aiConfigService } from '../services/ai-config.service.js';
 import { success } from '../utils/response.js';
 import { HttpError } from '../errors/HttpError.js';
+import { asyncHandler } from '../utils/asyncHandler.js';
 
 export const adminController = {
-  signin: (async (req, res, next) => {
-    try {
-      const { email, password } = req.body;
-      if (!email || !password) return next(HttpError.badRequest('Email and password required'));
-      const result = await adminService.signin(email, password);
-      success(res, result);
-    } catch (err) { next(err); }
-  }) as RequestHandler,
+  signin: asyncHandler(async (req, res) => {
+    const { email, password } = req.body;
+    if (!email || !password) throw HttpError.badRequest('Email and password required');
+    success(res, await adminService.signin(email, password));
+  }),
 
-  dashboard: (async (_req, res, next) => {
-    try { success(res, await adminService.getDashboardStats()); } catch (err) { next(err); }
-  }) as RequestHandler,
+  dashboard: asyncHandler(async (_req, res) => {
+    success(res, await adminService.getDashboardStats());
+  }),
 
-  getCandidates: (async (_req, res, next) => {
-    try { success(res, await adminService.getCandidates()); } catch (err) { next(err); }
-  }) as RequestHandler,
+  getCandidates: asyncHandler(async (_req, res) => {
+    success(res, await adminService.getCandidates());
+  }),
 
-  getCandidate: (async (req, res, next) => {
-    try { success(res, await adminService.getCandidate(req.params.id)); } catch (err) { next(err); }
-  }) as RequestHandler,
+  getCandidate: asyncHandler(async (req, res) => {
+    success(res, await adminService.getCandidate(req.params.id));
+  }),
 
-  updateCandidate: (async (req, res, next) => {
-    try { success(res, await adminService.updateCandidate(req.params.id, req.body)); } catch (err) { next(err); }
-  }) as RequestHandler,
+  updateCandidate: asyncHandler(async (req, res) => {
+    success(res, await adminService.updateCandidate(req.params.id, req.body));
+  }),
 
-  getCandidateApplications: (async (req, res, next) => {
-    try { success(res, await adminService.getCandidateApplications(req.params.id)); } catch (err) { next(err); }
-  }) as RequestHandler,
+  getCandidateApplications: asyncHandler(async (req, res) => {
+    success(res, await adminService.getCandidateApplications(req.params.id));
+  }),
 
-  getEmployees: (async (_req, res, next) => {
-    try { success(res, await adminService.getEmployees()); } catch (err) { next(err); }
-  }) as RequestHandler,
+  getEmployees: asyncHandler(async (_req, res) => {
+    success(res, await adminService.getEmployees());
+  }),
 
-  createEmployee: (async (req, res, next) => {
-    try {
-      const { email, password } = req.body;
-      if (!email || !password) return next(HttpError.badRequest('Email and password required'));
-      const emp = await adminService.createEmployee(email, password);
-      success(res, { id: emp.id, email: emp.email, role: emp.role }, 201);
-    } catch (err) { next(err); }
-  }) as RequestHandler,
+  createEmployee: asyncHandler(async (req, res) => {
+    const { email, password } = req.body;
+    if (!email || !password) throw HttpError.badRequest('Email and password required');
+    const emp = await adminService.createEmployee(email, password);
+    success(res, { id: emp.id, email: emp.email, role: emp.role }, 201);
+  }),
 
-  deleteEmployee: (async (req, res, next) => {
-    try { await adminService.deleteEmployee(req.params.id); success(res, { message: 'Deleted' }); } catch (err) { next(err); }
-  }) as RequestHandler,
+  deleteEmployee: asyncHandler(async (req, res) => {
+    await adminService.deleteEmployee(req.params.id);
+    success(res, { message: 'Deleted' });
+  }),
 
-  getPlans: (async (_req, res, next) => {
-    try { success(res, await adminService.getPlans()); } catch (err) { next(err); }
-  }) as RequestHandler,
+  getPlans: asyncHandler(async (_req, res) => {
+    success(res, await adminService.getPlans());
+  }),
 
-  createPlan: (async (req, res, next) => {
-    try { success(res, await adminService.createPlan(req.body), 201); } catch (err) { next(err); }
-  }) as RequestHandler,
+  createPlan: asyncHandler(async (req, res) => {
+    success(res, await adminService.createPlan(req.body), 201);
+  }),
 
-  updatePlan: (async (req, res, next) => {
-    try { success(res, await adminService.updatePlan(req.params.id, req.body)); } catch (err) { next(err); }
-  }) as RequestHandler,
+  updatePlan: asyncHandler(async (req, res) => {
+    success(res, await adminService.updatePlan(req.params.id, req.body));
+  }),
 
-  deletePlan: (async (req, res, next) => {
-    try { await adminService.deletePlan(req.params.id); success(res, { message: 'Plan deleted' }); } catch (err) { next(err); }
-  }) as RequestHandler,
+  deletePlan: asyncHandler(async (req, res) => {
+    await adminService.deletePlan(req.params.id);
+    success(res, { message: 'Plan deleted' });
+  }),
 
-  getPrompts: (async (_req, res, next) => {
-    try { success(res, await adminService.getPrompts()); } catch (err) { next(err); }
-  }) as RequestHandler,
+  getPrompts: asyncHandler(async (_req, res) => {
+    success(res, await adminService.getPrompts());
+  }),
 
-  createPrompt: (async (req, res, next) => {
-    try { success(res, await adminService.createPrompt(req.body), 201); } catch (err) { next(err); }
-  }) as RequestHandler,
+  createPrompt: asyncHandler(async (req, res) => {
+    success(res, await adminService.createPrompt(req.body), 201);
+  }),
 
-  updatePrompt: (async (req, res, next) => {
-    try { success(res, await adminService.updatePrompt(req.params.id, req.body)); } catch (err) { next(err); }
-  }) as RequestHandler,
+  updatePrompt: asyncHandler(async (req, res) => {
+    success(res, await adminService.updatePrompt(req.params.id, req.body));
+  }),
 
-  deletePrompt: (async (req, res, next) => {
-    try { await adminService.deletePrompt(req.params.id); success(res, { message: 'Prompt deleted' }); } catch (err) { next(err); }
-  }) as RequestHandler,
+  deletePrompt: asyncHandler(async (req, res) => {
+    await adminService.deletePrompt(req.params.id);
+    success(res, { message: 'Prompt deleted' });
+  }),
 
-  getEmployeePerformance: (async (_req, res, next) => {
-    try { success(res, await adminService.getEmployeePerformance()); } catch (err) { next(err); }
-  }) as RequestHandler,
+  getEmployeePerformance: asyncHandler(async (_req, res) => {
+    success(res, await adminService.getEmployeePerformance());
+  }),
 
-  getEmployeePerformanceDetail: (async (req, res, next) => {
-    try { success(res, await adminService.getEmployeePerformanceDetail(req.params.id)); } catch (err) { next(err); }
-  }) as RequestHandler,
+  getEmployeePerformanceDetail: asyncHandler(async (req, res) => {
+    success(res, await adminService.getEmployeePerformanceDetail(req.params.id));
+  }),
 
-  getAuditLog: (async (_req, res, next) => {
-    try { success(res, await adminService.getAuditLog()); } catch (err) { next(err); }
-  }) as RequestHandler,
+  getAuditLog: asyncHandler(async (_req, res) => {
+    success(res, await adminService.getAuditLog());
+  }),
 
-  getTransactions: (async (_req, res, next) => {
-    try { success(res, await adminService.getTransactions()); } catch (err) { next(err); }
-  }) as RequestHandler,
+  getTransactions: asyncHandler(async (_req, res) => {
+    success(res, await adminService.getTransactions());
+  }),
 
-  changePassword: (async (req, res, next) => {
-    try {
-      const { currentPassword, newPassword } = req.body;
-      if (!currentPassword || !newPassword) return next(HttpError.badRequest('Both passwords required'));
-      await adminService.changePassword(req.user!.id, currentPassword, newPassword);
-      success(res, { message: 'Password updated' });
-    } catch (err) { next(err); }
-  }) as RequestHandler,
+  changePassword: asyncHandler(async (req, res) => {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) throw HttpError.badRequest('Both passwords required');
+    await adminService.changePassword(req.user!.id, currentPassword, newPassword);
+    success(res, { message: 'Password updated' });
+  }),
+
+  getAiSettings: asyncHandler(async (_req, res) => {
+    success(res, await aiConfigService.getMasked());
+  }),
+
+  updateAiSettings: asyncHandler(async (req, res) => {
+    const { apiKey, model, cvParseModel, maxTokens } = req.body ?? {};
+    const updated = await aiConfigService.update({
+      apiKey,
+      model,
+      cvParseModel,
+      maxTokens: maxTokens != null ? Number(maxTokens) : undefined,
+    });
+    success(res, updated);
+  }),
 };

@@ -14,3 +14,8 @@ export type CreateJobDiscoveryDtoType = z.infer<typeof CreateJobDiscoveryDto>;
 
 export const UpdateJobDiscoveryDto = CreateJobDiscoveryDto.partial();
 export type UpdateJobDiscoveryDtoType = z.infer<typeof UpdateJobDiscoveryDto>;
+
+export const BulkCreateJobDiscoveryDto = z.object({
+  jobs: z.array(CreateJobDiscoveryDto).min(1, 'At least one job is required').max(500, 'Maximum 500 jobs per import'),
+});
+export type BulkCreateJobDiscoveryDtoType = z.infer<typeof BulkCreateJobDiscoveryDto>;

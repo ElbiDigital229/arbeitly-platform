@@ -78,167 +78,90 @@
         <span class="mdi mdi-clipboard-outline text-5xl text-muted-foreground/20" />
         <p class="text-sm text-muted-foreground mt-3">Onboarding not completed yet.</p>
       </div>
-      <div v-else class="rounded-xl border border-border bg-card p-6 space-y-4">
-        <h3 class="font-display text-base font-semibold text-foreground">Onboarding Responses</h3>
-        <div class="grid grid-cols-2 gap-4 text-sm">
-          <div><p class="text-xs text-muted-foreground">First Name</p><p class="font-medium text-foreground">{{ onboarding.firstName || '—' }}</p></div>
-          <div><p class="text-xs text-muted-foreground">Last Name</p><p class="font-medium text-foreground">{{ onboarding.lastName || '—' }}</p></div>
-          <div><p class="text-xs text-muted-foreground">Phone</p><p class="font-medium text-foreground">{{ onboarding.phone || '—' }}</p></div>
-          <div><p class="text-xs text-muted-foreground">Location</p><p class="font-medium text-foreground">{{ onboarding.location || '—' }}</p></div>
-        </div>
-        <div v-if="onboarding.bio">
-          <p class="text-xs text-muted-foreground mb-1">Bio</p>
-          <p class="text-sm text-foreground">{{ onboarding.bio }}</p>
-        </div>
-        <div v-if="onboarding.baseCoverLetter">
-          <p class="text-xs text-muted-foreground mb-1">Base Cover Letter</p>
-          <pre class="text-xs text-foreground whitespace-pre-wrap font-mono p-3 rounded-lg bg-secondary/30">{{ onboarding.baseCoverLetter }}</pre>
-        </div>
-        <div v-if="onboarding.dummyEmail || onboarding.dummyPassword" class="border-t border-border pt-4">
-          <h4 class="text-sm font-semibold text-foreground mb-2">Application Credentials</h4>
-          <div class="grid grid-cols-2 gap-4 text-sm">
-            <div><p class="text-xs text-muted-foreground">Dummy Email</p><p class="font-medium text-foreground font-mono">{{ onboarding.dummyEmail || '—' }}</p></div>
-            <div><p class="text-xs text-muted-foreground">Dummy Password</p><p class="font-medium text-foreground font-mono">{{ onboarding.dummyPassword || '—' }}</p></div>
+      <div v-else class="space-y-4">
+        <div v-for="group in onboardingGroups.filter(g => g.fields.some(f => onboardingValue(f.key)))" :key="group.title" class="rounded-xl border border-border bg-card p-6 space-y-4">
+          <div class="flex items-center gap-2">
+            <span class="mdi text-primary" :class="group.icon" />
+            <h3 class="font-display text-base font-semibold text-foreground">{{ group.title }}</h3>
           </div>
-        </div>
-        <div v-if="onboarding.preferredLanguage" class="border-t border-border pt-4">
-          <p class="text-xs text-muted-foreground">Preferred Language</p>
-          <p class="text-sm font-medium text-foreground">{{ onboarding.preferredLanguage === 'en' ? 'English' : 'Deutsch' }}</p>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <div v-for="f in group.fields.filter(f => onboardingValue(f.key))" :key="f.key" :class="f.full ? 'md:col-span-2' : ''">
+              <p class="text-xs text-muted-foreground">{{ f.label }}</p>
+              <p v-if="f.mono" class="font-medium text-foreground font-mono break-all">{{ onboardingValue(f.key) }}</p>
+              <pre v-else-if="f.pre" class="text-sm text-foreground whitespace-pre-wrap mt-1 p-3 rounded-lg bg-secondary/30">{{ onboardingValue(f.key) }}</pre>
+              <p v-else class="font-medium text-foreground whitespace-pre-wrap">{{ onboardingValue(f.key) }}</p>
+            </div>
+          </div>
         </div>
       </div>
     </template>
 
     <!-- ═══════════ CV Tab ═══════════ -->
     <template v-if="activeTab === 'cv'">
-      <div v-if="cvs.length === 0" class="rounded-xl border border-border bg-card p-12 text-center">
-        <span class="mdi mdi-file-document-outline text-5xl text-muted-foreground/20" />
-        <p class="text-sm text-muted-foreground mt-3">No CVs uploaded yet.</p>
+      <div class="-mx-6 -mb-6">
+        <CVBuilderView :candidate-id="candidateId" />
       </div>
-      <template v-else>
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-2">
-            <select v-model="selectedCvId" class="h-9 rounded-lg bg-secondary border-none text-sm text-foreground px-3 outline-none">
-              <option v-for="cv in cvs" :key="cv.id" :value="cv.id">
-                {{ cv.title || cv.originalName || 'CV' }}{{ cv.isBase ? ' (Base)' : '' }}{{ cv.parentType ? ` — ${cv.parentType}` : '' }}
-              </option>
-            </select>
-          </div>
-          <div class="flex items-center gap-2">
-            <button @click="enhanceCv" :disabled="enhancingCv" class="h-9 px-4 rounded-full text-sm font-medium bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">
-              {{ enhancingCv ? 'Enhancing...' : 'Enhance with Arbeitly' }}
-            </button>
-          </div>
-        </div>
-
-        <!-- CV rendered preview -->
-        <div v-if="selectedCv?.htmlContent || selectedCvRenderedHtml" class="rounded-xl border border-border bg-white overflow-hidden">
-          <iframe
-            ref="cvPreviewFrame"
-            class="w-full border-0"
-            style="min-height: 600px; max-height: 80vh;"
-            :srcdoc="selectedCvRenderedHtml"
-          />
-        </div>
-        <!-- Fallback: structured view from parsedData -->
-        <div v-else-if="selectedCv?.parsedData" class="rounded-xl border border-border bg-card p-6 space-y-4">
-          <h3 class="font-display text-base font-semibold text-foreground">{{ parsedPersonal?.name || 'CV Content' }}</h3>
-          <p v-if="parsedPersonal?.email || parsedPersonal?.phone" class="text-xs text-muted-foreground">
-            {{ [parsedPersonal?.email, parsedPersonal?.phone, parsedPersonal?.location].filter(Boolean).join(' · ') }}
-          </p>
-          <div v-if="parsedSummary" class="space-y-1">
-            <h4 class="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Summary</h4>
-            <p class="text-sm text-foreground">{{ parsedSummary }}</p>
-          </div>
-          <div v-if="parsedExperience?.length" class="space-y-2">
-            <h4 class="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Experience</h4>
-            <div v-for="(exp, i) in parsedExperience" :key="i" class="space-y-0.5">
-              <p class="text-sm font-medium text-foreground">{{ exp.title }} — {{ exp.company }}</p>
-              <p class="text-xs text-muted-foreground">{{ exp.dates }}</p>
-              <p class="text-xs text-foreground whitespace-pre-wrap">{{ exp.description }}</p>
-            </div>
-          </div>
-          <div v-if="parsedEducation?.length" class="space-y-2">
-            <h4 class="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Education</h4>
-            <div v-for="(edu, i) in parsedEducation" :key="i" class="space-y-0.5">
-              <p class="text-sm font-medium text-foreground">{{ edu.degree }} — {{ edu.institution }}</p>
-              <p class="text-xs text-muted-foreground">{{ edu.dates }}</p>
-            </div>
-          </div>
-          <div v-if="parsedSkills?.length" class="space-y-1">
-            <h4 class="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Skills</h4>
-            <p class="text-sm text-foreground">{{ parsedSkills.join(', ') }}</p>
-          </div>
-        </div>
-        <div v-else class="rounded-xl border border-border bg-card p-6">
-          <p class="text-sm text-muted-foreground">No parsed content available for this CV.</p>
-        </div>
-
-        <!-- Enhancement result -->
-        <div v-if="cvEnhanceResult" class="rounded-xl border border-primary/30 bg-primary/5 p-6 space-y-4">
-          <div class="flex items-center justify-between">
-            <h3 class="font-display text-base font-semibold text-foreground">Enhanced CV</h3>
-            <div class="flex gap-2">
-              <button @click="saveCvVersion" class="h-8 px-3 rounded-lg text-xs font-medium bg-primary text-primary-foreground">Save as Version</button>
-              <button @click="cvEnhanceResult = null" class="h-8 px-3 rounded-lg text-xs font-medium bg-secondary text-foreground">Dismiss</button>
-            </div>
-          </div>
-          <pre class="text-xs text-foreground whitespace-pre-wrap font-mono max-h-[40vh] overflow-y-auto">{{ cvEnhanceResult }}</pre>
-        </div>
-
-        <!-- Custom prompt -->
-        <div class="rounded-xl border border-border bg-card p-4 space-y-3">
-          <h4 class="text-sm font-semibold text-foreground">Custom Enhancement</h4>
-          <div class="flex gap-2">
-            <input v-model="cvCustomPrompt" class="input-field flex-1" placeholder="e.g. Make it more concise, focus on leadership..." />
-            <button @click="enhanceCvCustom" :disabled="!cvCustomPrompt || enhancingCv" class="h-9 px-4 rounded-lg text-sm font-medium bg-secondary text-foreground hover:bg-secondary/80 disabled:opacity-50">
-              Run
-            </button>
-          </div>
-        </div>
-
-        <!-- Version tree -->
-        <div v-if="cvVersions.length > 0" class="rounded-xl border border-border bg-card p-4 space-y-2">
-          <h4 class="text-sm font-semibold text-foreground">Versions & Variants</h4>
-          <div v-for="v in cvVersions" :key="v.id" class="space-y-1">
-            <button @click="selectedCvId = v.id" class="flex items-center gap-2 w-full text-left px-2 py-1.5 rounded-lg text-xs hover:bg-secondary/40" :class="selectedCvId === v.id ? 'bg-secondary text-foreground font-medium' : 'text-muted-foreground'">
-              <span class="mdi mdi-file-tree" /> {{ v.title || 'Version' }} <span class="text-[10px] opacity-60">{{ v.parentType }}</span>
-            </button>
-            <div v-if="v.children?.length" class="pl-6 space-y-1">
-              <button v-for="c in v.children" :key="c.id" @click="selectedCvId = c.id" class="flex items-center gap-2 w-full text-left px-2 py-1 rounded-lg text-xs hover:bg-secondary/40" :class="selectedCvId === c.id ? 'bg-secondary text-foreground font-medium' : 'text-muted-foreground'">
-                <span class="mdi mdi-subdirectory-arrow-right" /> {{ c.title || 'Variant' }}
-              </button>
-            </div>
-          </div>
-        </div>
-      </template>
     </template>
 
     <!-- ═══════════ Cover Letter Tab ═══════════ -->
     <template v-if="activeTab === 'cl'">
-      <div v-if="coverLetters.length === 0" class="rounded-xl border border-border bg-card p-12 text-center">
-        <span class="mdi mdi-file-edit-outline text-5xl text-muted-foreground/20" />
-        <p class="text-sm text-muted-foreground mt-3">No cover letters yet.</p>
-      </div>
-      <template v-else>
-        <div class="flex items-center justify-between">
-          <select v-model="selectedClId" class="h-9 rounded-lg bg-secondary border-none text-sm text-foreground px-3 outline-none">
+      <div class="flex items-center justify-between gap-3">
+        <div class="flex items-center gap-2 flex-1 min-w-0">
+          <select v-if="coverLetters.length > 0" v-model="selectedClId" class="h-9 rounded-lg bg-secondary border-none text-sm text-foreground px-3 outline-none min-w-0">
             <option v-for="cl in coverLetters" :key="cl.id" :value="cl.id">
               {{ cl.title }}{{ cl.isBase ? ' (Base)' : '' }}{{ cl.parentType ? ` — ${cl.parentType}` : '' }}
             </option>
           </select>
-          <button @click="enhanceCl" :disabled="enhancingCl" class="h-9 px-4 rounded-full text-sm font-medium bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">
-            {{ enhancingCl ? 'Enhancing...' : 'Enhance with Arbeitly' }}
+          <button @click="startNewCl" class="flex items-center gap-1.5 h-9 px-3 rounded-lg text-xs font-medium border border-border text-foreground hover:bg-secondary/60">
+            <span class="mdi mdi-plus" /> New
           </button>
         </div>
+        <div class="flex items-center gap-2">
+          <button v-if="selectedCl && clDirty" @click="saveCurrentCl" :disabled="savingCl" class="h-9 px-3 rounded-lg text-xs font-medium border border-primary/30 text-primary hover:bg-primary/10 disabled:opacity-50">
+            <span class="mdi mdi-content-save-outline mr-1" />{{ savingCl ? 'Saving…' : 'Save' }}
+          </button>
+          <button v-if="selectedCl" @click="enhanceCl" :disabled="enhancingCl" class="h-9 px-4 rounded-full text-sm font-medium bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">
+            <span class="mdi mr-1" :class="enhancingCl ? 'mdi-loading mdi-spin' : 'mdi-creation'" />
+            {{ enhancingCl ? 'Enhancing…' : 'Enhance with Arbeitly' }}
+          </button>
+        </div>
+      </div>
 
-        <div class="rounded-xl border border-border bg-card p-6">
-          <pre class="text-xs text-foreground whitespace-pre-wrap font-mono max-h-[60vh] overflow-y-auto">{{ selectedCl?.content || 'No content.' }}</pre>
+      <div v-if="coverLetters.length === 0 && !creatingCl" class="rounded-xl border border-border bg-card p-12 text-center">
+        <span class="mdi mdi-file-edit-outline text-5xl text-muted-foreground/20" />
+        <p class="text-sm text-muted-foreground mt-3">No cover letters yet.</p>
+        <button @click="startNewCl" class="mt-4 inline-flex items-center gap-1.5 h-9 px-4 rounded-full text-sm font-medium bg-primary text-primary-foreground">
+          <span class="mdi mdi-plus" /> Create cover letter
+        </button>
+      </div>
+
+      <div v-if="creatingCl" class="rounded-xl border border-border bg-card p-4 space-y-3">
+        <input v-model="newClTitle" placeholder="Cover letter title" class="input-field w-full" />
+        <textarea v-model="newClContent" rows="10" placeholder="Cover letter content..." class="input-field w-full resize-y font-mono text-sm" />
+        <div class="flex justify-end gap-2">
+          <button @click="creatingCl = false" class="px-3 py-1.5 rounded-lg text-xs font-medium bg-secondary text-foreground">Cancel</button>
+          <button @click="submitNewCl" :disabled="!newClTitle || !newClContent || savingCl" class="px-4 py-1.5 rounded-lg text-xs font-medium bg-primary text-primary-foreground disabled:opacity-50">
+            {{ savingCl ? 'Creating…' : 'Create' }}
+          </button>
+        </div>
+      </div>
+
+      <template v-else-if="selectedCl">
+        <div class="rounded-xl border border-border bg-card p-3">
+          <textarea
+            v-model="clEditContent"
+            @input="clDirty = true"
+            rows="18"
+            class="w-full bg-transparent border-none outline-none font-mono text-sm text-foreground resize-y leading-relaxed"
+            placeholder="Cover letter content..."
+          />
         </div>
 
         <div v-if="clEnhanceResult" class="rounded-xl border border-primary/30 bg-primary/5 p-6 space-y-4">
           <div class="flex items-center justify-between">
             <h3 class="font-display text-base font-semibold text-foreground">Enhanced Cover Letter</h3>
             <div class="flex gap-2">
+              <button @click="applyEnhancedToEditor" class="h-8 px-3 rounded-lg text-xs font-medium border border-border text-foreground">Apply to editor</button>
               <button @click="saveClVersion" class="h-8 px-3 rounded-lg text-xs font-medium bg-primary text-primary-foreground">Save as Version</button>
               <button @click="clEnhanceResult = null" class="h-8 px-3 rounded-lg text-xs font-medium bg-secondary text-foreground">Dismiss</button>
             </div>
@@ -256,6 +179,40 @@
           </div>
         </div>
       </template>
+    </template>
+
+    <!-- ═══════════ Files Tab ═══════════ -->
+    <template v-if="activeTab === 'files'">
+      <div class="flex items-center justify-between">
+        <p class="text-sm text-muted-foreground">{{ files.length }} file{{ files.length !== 1 ? 's' : '' }}</p>
+        <label class="flex items-center gap-1.5 h-9 px-4 rounded-full text-sm font-medium bg-primary text-primary-foreground hover:opacity-90 cursor-pointer">
+          <span class="mdi" :class="uploadingFile ? 'mdi-loading mdi-spin' : 'mdi-upload'" />
+          {{ uploadingFile ? 'Uploading…' : 'Upload File' }}
+          <input type="file" class="hidden" @change="onFileSelected" :disabled="uploadingFile" />
+        </label>
+      </div>
+
+      <div v-if="files.length === 0" class="rounded-xl border border-border bg-card p-12 text-center">
+        <span class="mdi mdi-folder-outline text-5xl text-muted-foreground/20" />
+        <p class="text-sm text-foreground mt-3">No files yet</p>
+        <p class="text-xs text-muted-foreground mt-1">Upload any document for this candidate (passport, certificates, references, etc.)</p>
+      </div>
+
+      <div v-else class="space-y-2">
+        <div v-for="f in files" :key="f.id" class="rounded-xl border border-border bg-card p-3 flex items-center gap-3">
+          <span class="mdi text-2xl text-primary shrink-0" :class="fileIcon(f.mimetype)" />
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-foreground truncate">{{ f.filename }}</p>
+            <p class="text-[11px] text-muted-foreground">{{ formatBytes(f.size) }} · {{ formatFileDate(f.createdAt) }}</p>
+          </div>
+          <button @click="downloadFile(f)" class="h-8 px-3 rounded-lg text-xs font-medium border border-border text-foreground hover:bg-secondary/60">
+            <span class="mdi mdi-download text-xs mr-1" /> Download
+          </button>
+          <button @click="deleteFile(f.id)" class="h-8 w-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-destructive">
+            <span class="mdi mdi-trash-can-outline text-sm" />
+          </button>
+        </div>
+      </div>
     </template>
 
     <!-- ═══════════ FAQ Tab ═══════════ -->
@@ -412,6 +369,7 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import api from '../../services/api';
 import { useEmployeeStore } from '../../stores/employee';
+import CVBuilderView from '../candidate/CVBuilderView.vue';
 
 const store = useEmployeeStore();
 const route = useRoute();
@@ -430,13 +388,109 @@ const showPassword = ref(false);
 // Onboarding
 const onboarding = ref<any>(null);
 
-// CV state
-const cvs = ref<any[]>([]);
-const selectedCvId = ref('');
-const cvVersions = ref<any[]>([]);
-const enhancingCv = ref(false);
-const cvEnhanceResult = ref<string | null>(null);
-const cvCustomPrompt = ref('');
+const LANG_LABEL: Record<string, string> = { en: 'English', de: 'Deutsch' };
+
+const onboardingGroups = [
+  {
+    title: 'Personal',
+    icon: 'mdi-account-outline',
+    fields: [
+      { key: 'firstName', label: 'First Name' },
+      { key: 'lastName', label: 'Last Name' },
+      { key: 'phone', label: 'Phone' },
+      { key: 'location', label: 'Location' },
+      { key: 'applicationEmail', label: 'Email for Applications', mono: true },
+      { key: 'linkedin', label: 'LinkedIn URL', mono: true, full: true },
+      { key: 'dob', label: 'Date of Birth' },
+      { key: 'placeOfBirth', label: 'Place of Birth' },
+      { key: 'address', label: 'Address', full: true },
+      { key: 'bio', label: 'Bio', full: true, pre: true },
+    ],
+  },
+  {
+    title: 'Current Role & Experience',
+    icon: 'mdi-briefcase-outline',
+    fields: [
+      { key: 'currentJobTitle', label: 'Job Title' },
+      { key: 'currentEmployer', label: 'Employer' },
+      { key: 'currentField', label: 'Field' },
+      { key: 'yearsExperience', label: 'Years of Experience' },
+      { key: 'currentSalary', label: 'Current Salary (€)' },
+      { key: 'workedInGermany', label: 'Worked in Germany?' },
+      { key: 'noticePeriod', label: 'Notice Period' },
+    ],
+  },
+  {
+    title: 'Education',
+    icon: 'mdi-school-outline',
+    fields: [
+      { key: 'highestStudy', label: 'Highest Level of Study' },
+      { key: 'degreeTitle', label: 'Degree Title' },
+      { key: 'university', label: 'University' },
+      { key: 'universityLocation', label: 'University Location' },
+    ],
+  },
+  {
+    title: 'Skills & Goals',
+    icon: 'mdi-target',
+    fields: [
+      { key: 'topSkills', label: 'Top Skills', full: true, pre: true },
+      { key: 'certifications', label: 'Certifications', full: true, pre: true },
+      { key: 'careerGoal', label: 'Primary Career Goal' },
+      { key: 'employmentType', label: 'Employment Type' },
+      { key: 'targetRoles', label: 'Target Roles', full: true, pre: true },
+      { key: 'targetIndustries', label: 'Target Industries', full: true, pre: true },
+      { key: 'targetCompanies', label: 'Target Companies', full: true, pre: true },
+      { key: 'openToCareerChange', label: 'Open to Career Change' },
+    ],
+  },
+  {
+    title: 'Preferences',
+    icon: 'mdi-tune',
+    fields: [
+      { key: 'preferredLocation', label: 'Preferred Location' },
+      { key: 'openToRelocation', label: 'Open to Relocation' },
+      { key: 'preferredSalary', label: 'Preferred Salary' },
+      { key: 'germanLevel', label: 'German Language Level' },
+      { key: 'drivingLicense', label: 'Driving License' },
+      { key: 'preferredLanguage', label: 'Preferred Language' },
+    ],
+  },
+  {
+    title: 'Motivation & Other',
+    icon: 'mdi-lightbulb-outline',
+    fields: [
+      { key: 'transitionMotivation', label: 'What motivates this change?', full: true, pre: true },
+      { key: 'trainingNeeds', label: 'Training Needs', full: true, pre: true },
+      { key: 'howHeard', label: 'How they heard about us' },
+      { key: 'additionalInfo', label: 'Additional Info', full: true, pre: true },
+    ],
+  },
+  {
+    title: 'Application Credentials',
+    icon: 'mdi-key-outline',
+    fields: [
+      { key: 'dummyEmail', label: 'Dummy Email', mono: true },
+      { key: 'dummyPassword', label: 'Dummy Password', mono: true },
+    ],
+  },
+  {
+    title: 'Base Cover Letter',
+    icon: 'mdi-file-document-outline',
+    fields: [
+      { key: 'baseCoverLetter', label: 'Base Cover Letter', full: true, pre: true },
+    ],
+  },
+];
+
+function onboardingValue(key: string): string {
+  const ob = onboarding.value;
+  if (!ob) return '';
+  const v = ob[key] ?? ob.onboardingData?.[key];
+  if (v == null || v === '') return '';
+  if (key === 'preferredLanguage') return LANG_LABEL[v] ?? String(v);
+  return String(v);
+}
 
 // CL state
 const coverLetters = ref<any[]>([]);
@@ -444,6 +498,16 @@ const selectedClId = ref('');
 const enhancingCl = ref(false);
 const clEnhanceResult = ref<string | null>(null);
 const clCustomPrompt = ref('');
+const clEditContent = ref('');
+const clDirty = ref(false);
+const savingCl = ref(false);
+const creatingCl = ref(false);
+const newClTitle = ref('');
+const newClContent = ref('');
+
+// Files state
+const files = ref<any[]>([]);
+const uploadingFile = ref(false);
 
 // FAQ state
 const faqItems = ref<any[]>([]);
@@ -459,6 +523,7 @@ const tabs = [
   { id: 'cl', label: 'Cover Letter' },
   { id: 'faq', label: 'FAQ' },
   { id: 'applications', label: 'Applications' },
+  { id: 'files', label: 'Files' },
 ];
 
 const newApp = ref({ jobTitle: '', companyName: '', jobUrl: '', status: 'TO_APPLY', salary: '', notes: '' });
@@ -471,35 +536,7 @@ const fullName = computed(() => {
 
 const initials = computed(() => fullName.value.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase());
 
-const selectedCv = computed(() => cvs.value.find(c => c.id === selectedCvId.value));
 const selectedCl = computed(() => coverLetters.value.find(c => c.id === selectedClId.value));
-
-// CV preview helpers
-const cvPreviewFrame = ref<HTMLIFrameElement | null>(null);
-const selectedCvRenderedHtml = computed(() => {
-  const cv = selectedCv.value;
-  if (!cv) return '';
-  if (cv.htmlContent) {
-    const style = cv.style || 'modern';
-    const CSS: Record<string, string> = {
-      modern: `body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#1a1a2e;margin:0;padding:0}.w{max-width:780px;margin:0 auto;padding:40px 48px}h1{font-size:2rem;font-weight:700;margin:0 0 4px;color:#0f172a}h2{font-size:.9rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:#0ea5e9;border-bottom:2px solid #0ea5e9;padding-bottom:4px;margin:20px 0 8px}p,li{font-size:.88rem;line-height:1.65;color:#334155;margin:3px 0}ul{padding-left:18px}strong{color:#0f172a}.contact{font-size:.82rem;color:#64748b;margin:4px 0 20px}`,
-      classic: `body{font-family:Georgia,serif;color:#1a1a1a;margin:0;padding:0}.w{max-width:780px;margin:0 auto;padding:48px 56px}h1{font-size:1.9rem;font-weight:700;margin:0 0 4px;border-bottom:3px double #1a1a1a;padding-bottom:8px}h2{font-size:.9rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin:20px 0 6px;color:#1a1a1a}p,li{font-size:.9rem;line-height:1.7;color:#2d2d2d;margin:3px 0}ul{padding-left:20px}.contact{font-size:.82rem;color:#555;margin:4px 0 20px}`,
-      minimal: `body{font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#222;margin:0;padding:0}.w{max-width:760px;margin:0 auto;padding:44px 52px}h1{font-size:1.8rem;font-weight:300;letter-spacing:.04em;margin:0 0 4px}h2{font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:#888;margin:24px 0 6px}p,li{font-size:.87rem;line-height:1.6;color:#444;margin:3px 0}ul{padding-left:16px}.contact{font-size:.8rem;color:#888;margin:4px 0 20px}`,
-    };
-    return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>*{box-sizing:border-box}${CSS[style] || CSS.modern}</style></head><body><div class="w">${cv.htmlContent}</div></body></html>`;
-  }
-  return '';
-});
-const parsedData = computed(() => {
-  const cv = selectedCv.value;
-  if (!cv?.parsedData) return null;
-  return typeof cv.parsedData === 'string' ? JSON.parse(cv.parsedData) : cv.parsedData;
-});
-const parsedPersonal = computed(() => parsedData.value?.personal);
-const parsedSummary = computed(() => parsedData.value?.summary);
-const parsedExperience = computed(() => parsedData.value?.experience);
-const parsedEducation = computed(() => parsedData.value?.education);
-const parsedSkills = computed(() => parsedData.value?.skills);
 
 const kanbanCols = computed(() => {
   const cols: Record<string, any[]> = {};
@@ -563,19 +600,6 @@ watch(activeTab, async (tab) => {
       onboarding.value = data.data;
     } catch { /* no onboarding */ }
   }
-  if (tab === 'cv' && cvs.value.length === 0) {
-    try {
-      const { data } = await api.get(`/employee/candidates/${candidateId}/cvs`, { headers: headers.value });
-      cvs.value = data.data || [];
-      if (cvs.value.length > 0) {
-        const base = cvs.value.find((c: any) => c.isBase) || cvs.value[0];
-        selectedCvId.value = base.id;
-        // Load version tree
-        const { data: tree } = await api.get(`/employee/candidates/${candidateId}/cvs/${base.id}/tree`, { headers: headers.value });
-        cvVersions.value = tree.data || [];
-      }
-    } catch { /* no cvs */ }
-  }
   if (tab === 'faq' && faqItems.value.length === 0) {
     try {
       const { data } = await api.get(`/employee/candidates/${candidateId}/faq`, { headers: headers.value });
@@ -592,46 +616,28 @@ watch(activeTab, async (tab) => {
       }
     } catch { /* no cls */ }
   }
+  if (tab === 'files' && files.value.length === 0) {
+    try {
+      const { data } = await api.get(`/employee/candidates/${candidateId}/files`, { headers: headers.value });
+      files.value = data.data || [];
+    } catch { /* no files */ }
+  }
 }, { immediate: false });
 
-// CV actions
-async function enhanceCv() {
-  if (!selectedCvId.value) return;
-  enhancingCv.value = true;
-  try {
-    const { data } = await api.post(`/employee/candidates/${candidateId}/cvs/${selectedCvId.value}/enhance`, {}, { headers: headers.value });
-    cvEnhanceResult.value = typeof data.data === 'string' ? data.data : JSON.stringify(data.data, null, 2);
-  } catch (e: any) { alert(e?.response?.data?.error || 'Enhancement failed.'); }
-  finally { enhancingCv.value = false; }
-}
-
-async function enhanceCvCustom() {
-  if (!selectedCvId.value || !cvCustomPrompt.value) return;
-  enhancingCv.value = true;
-  try {
-    const { data } = await api.post(`/employee/candidates/${candidateId}/cvs/${selectedCvId.value}/enhance`, { customPrompt: cvCustomPrompt.value }, { headers: headers.value });
-    cvEnhanceResult.value = typeof data.data === 'string' ? data.data : JSON.stringify(data.data, null, 2);
-    cvCustomPrompt.value = '';
-  } catch (e: any) { alert(e?.response?.data?.error || 'Enhancement failed.'); }
-  finally { enhancingCv.value = false; }
-}
-
-async function saveCvVersion() {
-  try {
-    await api.post(`/employee/candidates/${candidateId}/cvs/${selectedCvId.value}/version`, { title: 'Enhanced Version', content: cvEnhanceResult.value }, { headers: headers.value });
-    cvEnhanceResult.value = null;
-    // Refresh
-    const { data } = await api.get(`/employee/candidates/${candidateId}/cvs`, { headers: headers.value });
-    cvs.value = data.data || [];
-  } catch (e: any) { alert(e?.response?.data?.error || 'Failed to save version.'); }
-}
+// Sync CL editor when selection changes
+watch(selectedClId, (id) => {
+  const cl = coverLetters.value.find(c => c.id === id);
+  clEditContent.value = cl?.content || '';
+  clDirty.value = false;
+  clEnhanceResult.value = null;
+});
 
 // CL actions
 async function enhanceCl() {
   if (!selectedClId.value) return;
   enhancingCl.value = true;
   try {
-    const { data } = await api.post(`/employee/candidates/${candidateId}/cover-letters/${selectedClId.value}/enhance`, {}, { headers: headers.value });
+    const { data } = await api.post(`/employee/candidates/${candidateId}/cover-letters/${selectedClId.value}/enhance`, {}, { headers: headers.value, timeout: 180000 });
     clEnhanceResult.value = typeof data.data === 'string' ? data.data : JSON.stringify(data.data, null, 2);
   } catch (e: any) { alert(e?.response?.data?.error || 'Enhancement failed.'); }
   finally { enhancingCl.value = false; }
@@ -641,7 +647,7 @@ async function enhanceClCustom() {
   if (!selectedClId.value || !clCustomPrompt.value) return;
   enhancingCl.value = true;
   try {
-    const { data } = await api.post(`/employee/candidates/${candidateId}/cover-letters/${selectedClId.value}/enhance`, { customPrompt: clCustomPrompt.value }, { headers: headers.value });
+    const { data } = await api.post(`/employee/candidates/${candidateId}/cover-letters/${selectedClId.value}/enhance`, { customPrompt: clCustomPrompt.value }, { headers: headers.value, timeout: 180000 });
     clEnhanceResult.value = typeof data.data === 'string' ? data.data : JSON.stringify(data.data, null, 2);
     clCustomPrompt.value = '';
   } catch (e: any) { alert(e?.response?.data?.error || 'Enhancement failed.'); }
@@ -655,6 +661,114 @@ async function saveClVersion() {
     const { data } = await api.get(`/employee/candidates/${candidateId}/cover-letters`, { headers: headers.value });
     coverLetters.value = data.data || [];
   } catch (e: any) { alert(e?.response?.data?.error || 'Failed to save version.'); }
+}
+
+async function saveCurrentCl() {
+  if (!selectedClId.value) return;
+  savingCl.value = true;
+  try {
+    await api.put(`/employee/candidates/${candidateId}/cover-letters/${selectedClId.value}`, { content: clEditContent.value }, { headers: headers.value });
+    const cl = coverLetters.value.find(c => c.id === selectedClId.value);
+    if (cl) cl.content = clEditContent.value;
+    clDirty.value = false;
+  } catch (e: any) { alert(e?.response?.data?.error || 'Failed to save.'); }
+  finally { savingCl.value = false; }
+}
+
+function applyEnhancedToEditor() {
+  if (clEnhanceResult.value) {
+    clEditContent.value = clEnhanceResult.value;
+    clDirty.value = true;
+    clEnhanceResult.value = null;
+  }
+}
+
+function startNewCl() {
+  newClTitle.value = '';
+  newClContent.value = '';
+  creatingCl.value = true;
+}
+
+async function submitNewCl() {
+  savingCl.value = true;
+  try {
+    const { data } = await api.post(`/employee/candidates/${candidateId}/cover-letters`, { title: newClTitle.value, content: newClContent.value }, { headers: headers.value });
+    coverLetters.value.unshift(data.data);
+    selectedClId.value = data.data.id;
+    creatingCl.value = false;
+  } catch (e: any) { alert(e?.response?.data?.error || 'Failed to create.'); }
+  finally { savingCl.value = false; }
+}
+
+// Files actions
+async function onFileSelected(e: Event) {
+  const input = e.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (!file) return;
+  uploadingFile.value = true;
+  try {
+    const fd = new FormData();
+    fd.append('file', file);
+    const { data } = await api.post(`/employee/candidates/${candidateId}/files`, fd, {
+      headers: { ...headers.value, 'Content-Type': 'multipart/form-data' },
+    });
+    files.value.unshift(data.data);
+  } catch (err: any) {
+    alert(err?.response?.data?.error || 'Upload failed.');
+  } finally {
+    uploadingFile.value = false;
+    input.value = '';
+  }
+}
+
+async function downloadFile(f: any) {
+  try {
+    const response = await api.get(`/employee/candidates/${candidateId}/files/${f.id}/download`, {
+      headers: headers.value,
+      responseType: 'blob',
+    });
+    const blob = new Blob([response.data], { type: f.mimetype });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = f.filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  } catch (err) {
+    console.error('Download failed:', err);
+  }
+}
+
+async function deleteFile(fileId: string) {
+  if (!confirm('Delete this file?')) return;
+  try {
+    await api.delete(`/employee/candidates/${candidateId}/files/${fileId}`, { headers: headers.value });
+    files.value = files.value.filter(f => f.id !== fileId);
+  } catch (err) {
+    console.error('Delete failed:', err);
+  }
+}
+
+function fileIcon(mimetype: string): string {
+  if (mimetype.startsWith('image/')) return 'mdi-image-outline';
+  if (mimetype === 'application/pdf') return 'mdi-file-pdf-box';
+  if (mimetype.includes('word')) return 'mdi-file-word-box';
+  if (mimetype.includes('sheet') || mimetype.includes('excel')) return 'mdi-file-excel-box';
+  if (mimetype.startsWith('video/')) return 'mdi-file-video-outline';
+  if (mimetype.startsWith('audio/')) return 'mdi-file-music-outline';
+  return 'mdi-file-outline';
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function formatFileDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 // FAQ actions

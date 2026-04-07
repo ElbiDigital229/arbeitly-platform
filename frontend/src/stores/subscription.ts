@@ -29,7 +29,7 @@ export const useSubscriptionStore = defineStore('subscription', () => {
   async function fetchCurrentPlan() {
     loading.value = true;
     try {
-      const { data } = await api.get('/payments/subscription');
+      const { data } = await api.get('/payment/subscription');
       currentPlan.value = data.data;
     } catch {
       currentPlan.value = { plan: null, status: 'FREE' };
@@ -39,7 +39,7 @@ export const useSubscriptionStore = defineStore('subscription', () => {
   }
 
   async function purchasePlan(planId: string) {
-    const { data } = await api.post('/payments/purchase', { planId });
+    const { data } = await api.post('/payment/purchase', { planId });
     await fetchCurrentPlan();
     return data.data;
   }

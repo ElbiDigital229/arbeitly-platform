@@ -1,10 +1,7 @@
-import Anthropic from '@anthropic-ai/sdk';
 import { prisma } from '../config/prisma.js';
-import { env } from '../config/env.js';
 import { adminPromptRepository } from '../repositories/admin-prompt.repository.js';
 import { HttpError } from '../errors/HttpError.js';
-
-const getClient = () => new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
+import { aiCompleteJson } from './external/ai-client.js';
 
 export const cvEnhanceService = {
   async enhanceCV(cvId: string, customPrompt?: string) {
@@ -18,24 +15,7 @@ export const cvEnhanceService = {
       ? `${systemPrompt}\n\nAdditional instructions: ${customPrompt}\n\nCV DATA:\n${JSON.stringify(cv.parsedData, null, 2)}`
       : `${systemPrompt}\n\nCV DATA:\n${JSON.stringify(cv.parsedData, null, 2)}`;
 
-    const client = getClient();
-    const response = await client.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 16384,
-      messages: [{ role: 'user', content: userMessage }],
-    });
-
-    const textContent = response.content.find(c => c.type === 'text');
-    if (!textContent || textContent.type !== 'text') throw new Error('No AI response');
-
-    let jsonText = textContent.text.trim();
-    if (jsonText.startsWith('```')) jsonText = jsonText.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```\s*$/, '');
-    const firstBrace = jsonText.indexOf('{');
-    const lastBrace = jsonText.lastIndexOf('}');
-    if (firstBrace !== -1 && lastBrace > firstBrace) jsonText = jsonText.slice(firstBrace, lastBrace + 1);
-    jsonText = jsonText.replace(/,\s*([}\]])/g, '$1');
-
-    return JSON.parse(jsonText);
+    return aiCompleteJson(userMessage);
   },
 
   async createVersion(baseCvId: string, title: string, enhancedData: any) {
@@ -92,13 +72,7 @@ export const cvEnhanceService = {
     const cv = await prisma.cV.findUnique({ where: { id: baseCvId } });
     if (!cv || !cv.parsedData) throw HttpError.notFound('Base CV not found');
 
-    const client = getClient();
-    const response = await client.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 16384,
-      messages: [{
-        role: 'user',
-        content: `You are an expert CV tailor. Modify the following CV to be perfectly tailored for the job described below. Emphasize relevant experience and skills. Keep all factual information intact — do NOT invent new experiences. Return the same JSON structure.
+    const prompt = `You are an expert CV tailor. Modify the following CV to be perfectly tailored for the job described below. Emphasize relevant experience and skills. Keep all factual information intact — do NOT invent new experiences. Return the same JSON structure.
 
 JOB TITLE: ${jobTitle}
 COMPANY: ${company}
@@ -106,20 +80,8 @@ JOB DESCRIPTION:
 ${jobDescription}
 
 CV DATA:
-${JSON.stringify(cv.parsedData, null, 2)}`,
-      }],
-    });
+${JSON.stringify(cv.parsedData, null, 2)}`;
 
-    const textContent = response.content.find(c => c.type === 'text');
-    if (!textContent || textContent.type !== 'text') throw new Error('No AI response');
-
-    let jsonText = textContent.text.trim();
-    if (jsonText.startsWith('```')) jsonText = jsonText.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```\s*$/, '');
-    const firstBrace = jsonText.indexOf('{');
-    const lastBrace = jsonText.lastIndexOf('}');
-    if (firstBrace !== -1 && lastBrace > firstBrace) jsonText = jsonText.slice(firstBrace, lastBrace + 1);
-    jsonText = jsonText.replace(/,\s*([}\]])/g, '$1');
-
-    return JSON.parse(jsonText);
+    return aiCompleteJson(prompt);
   },
 };

@@ -51,5 +51,7 @@ router.post('/verify', async (req, res, next) => {
 // Legacy mock purchase (fallback when Stripe not configured)
 router.post('/purchase', validate(PurchasePlanDto), paymentController.purchasePlan);
 router.get('/subscription', paymentController.getCurrentPlan);
+router.get('/transactions', paymentController.getMyTransactions);
+router.get('/transactions/:id', paymentController.getMyTransaction);
 
 export default router;
