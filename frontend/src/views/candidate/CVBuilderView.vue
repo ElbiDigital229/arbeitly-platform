@@ -125,9 +125,9 @@
         <button
           v-for="lang in ['EN','DE']"
           :key="lang"
-          @click="editorData.language = lang as 'EN'|'DE'"
+          @click="editorData.displayLanguage = lang as 'EN'|'DE'"
           class="rounded-xl border-2 p-6 text-center transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-          :class="editorData.language === lang ? 'border-primary bg-primary/5' : 'border-border'"
+          :class="editorData.displayLanguage === lang ? 'border-primary bg-primary/5' : 'border-border'"
         >
           <div class="text-3xl mb-2">{{ lang === 'EN' ? '🇺🇸' : '🇩🇪' }}</div>
           <p class="text-base font-semibold text-foreground">{{ lang === 'EN' ? 'English' : 'German' }}</p>
@@ -178,9 +178,9 @@
           <button
             v-for="lang in ['EN','DE']"
             :key="lang"
-            @click="editorData.language = lang as 'EN'|'DE'"
+            @click="editorData.displayLanguage = lang as 'EN'|'DE'"
             class="flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-            :class="editorData.language === lang ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground'"
+            :class="editorData.displayLanguage === lang ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground'"
           >
             <span class="mdi mdi-translate text-xs" />{{ lang }}
           </button>
@@ -196,6 +196,95 @@
         <div>
           <label class="text-xs block mb-1.5 text-muted-foreground">CV Name</label>
           <input v-model="editorData.versionName" placeholder="e.g. My CV – Software Engineer" class="input-field" />
+        </div>
+
+        <!-- Design controls -->
+        <div class="glass rounded-xl p-4 space-y-3">
+          <div class="flex items-center justify-between">
+            <p class="text-xs font-semibold text-muted-foreground">Design</p>
+            <button
+              @click="resetDesign"
+              class="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+              title="Reset to template defaults"
+            >Reset</button>
+          </div>
+
+          <!-- Font size -->
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <label class="text-[11px] text-foreground/80">Font size</label>
+              <span class="text-[10px] tabular-nums text-muted-foreground">{{ (editorData.bodyPt ?? DEFAULT_BODY_PT).toFixed(1) }}pt</span>
+            </div>
+            <input
+              type="range"
+              min="6"
+              max="12"
+              step="0.5"
+              :value="editorData.bodyPt ?? DEFAULT_BODY_PT"
+              @input="editorData.bodyPt = parseFloat(($event.target as HTMLInputElement).value)"
+              class="w-full accent-primary"
+            />
+          </div>
+
+          <!-- Line height -->
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <label class="text-[11px] text-foreground/80">Line spacing</label>
+              <span class="text-[10px] tabular-nums text-muted-foreground">{{ (editorData.lineHeight ?? DEFAULT_LINE_HEIGHT).toFixed(2) }}</span>
+            </div>
+            <input
+              type="range"
+              min="1"
+              max="2"
+              step="0.05"
+              :value="editorData.lineHeight ?? DEFAULT_LINE_HEIGHT"
+              @input="editorData.lineHeight = parseFloat(($event.target as HTMLInputElement).value)"
+              class="w-full accent-primary"
+            />
+          </div>
+
+          <!-- Margin -->
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <label class="text-[11px] text-foreground/80">Page margin</label>
+              <span class="text-[10px] tabular-nums text-muted-foreground">{{ editorData.marginMm ?? DEFAULT_MARGIN_MM }}mm</span>
+            </div>
+            <input
+              type="range"
+              min="5"
+              max="25"
+              step="1"
+              :value="editorData.marginMm ?? DEFAULT_MARGIN_MM"
+              @input="editorData.marginMm = parseInt(($event.target as HTMLInputElement).value, 10)"
+              class="w-full accent-primary"
+            />
+          </div>
+
+          <!-- Theme color -->
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <label class="text-[11px] text-foreground/80">Theme color</label>
+              <span class="text-[10px] tabular-nums text-muted-foreground">{{ editorData.themeColor ?? DEFAULT_THEME_COLORS[editorData.style] }}</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <input
+                type="color"
+                :value="editorData.themeColor ?? DEFAULT_THEME_COLORS[editorData.style]"
+                @input="editorData.themeColor = ($event.target as HTMLInputElement).value"
+                class="h-7 w-10 rounded border border-border bg-transparent cursor-pointer"
+              />
+              <div class="flex items-center gap-1">
+                <button
+                  v-for="c in PRESET_THEME_COLORS"
+                  :key="c"
+                  @click="editorData.themeColor = c"
+                  :style="`background:${c}`"
+                  class="h-5 w-5 rounded-full border border-white/20 hover:scale-110 transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  :title="c"
+                />
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- Personal Info -->
@@ -359,13 +448,21 @@
               <span class="mdi mdi-drag-vertical text-base shrink-0 text-foreground/50 hover:text-foreground cursor-grab active:cursor-grabbing" />
               <p class="text-xs font-semibold text-muted-foreground">Skills</p>
             </div>
+            <div>
+              <label class="text-[10px] text-muted-foreground mb-1 block">Target role</label>
+              <RolePicker v-model="editorData.roleId" :roles="taxonomyRoles" />
+            </div>
+            <div>
+              <label class="text-[10px] text-muted-foreground mb-1 block">Tagged skills</label>
+              <TagPicker v-model="editorData.skillIds" :options="taxonomySkills" placeholder="Add skills..." />
+            </div>
             <textarea
               v-model="editorData.skills"
               placeholder="React, TypeScript, Node.js, SQL, Agile..."
               rows="3"
               class="input-field resize-none"
             />
-            <p class="text-[10px] text-muted-foreground">Comma or newline separated</p>
+            <p class="text-[10px] text-muted-foreground">Free-text fallback (comma or newline separated)</p>
           </div>
 
           <!-- Custom section -->
@@ -508,7 +605,7 @@
         </button>
         <div class="flex-1" />
         <button
-          @click="saveDialogOpen = true; saveName = editorData.versionName || 'My CV'"
+          @click="openSaveDialog"
           class="flex items-center gap-1.5 h-9 px-5 rounded-full text-sm font-medium shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all bg-primary text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         >
           Save CV
@@ -521,9 +618,17 @@
       <div class="flex items-center gap-2 px-4 py-2.5 border-b border-border shrink-0 bg-black/50">
         <span class="mdi mdi-eye-outline text-sm text-muted-foreground" />
         <span class="text-xs font-medium text-muted-foreground">Live Preview</span>
+        <span
+          class="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium tabular-nums"
+          :class="pageCount > 2 ? 'bg-warning/10 text-warning' : 'bg-primary/10 text-primary'"
+          :title="pageCount > 2 ? 'CV exceeds 2 pages — consider reducing font/margin' : ''"
+        >
+          <span class="mdi mdi-file-document-outline text-xs" />
+          Page {{ currentPage }} / {{ pageCount }}
+        </span>
         <span class="ml-auto text-[10px] text-white/30">Updates as you type</span>
       </div>
-      <div class="flex-1 overflow-hidden p-4">
+      <div class="flex-1 overflow-hidden p-4 relative">
         <iframe
           ref="previewIframe"
           class="w-full h-full rounded-lg shadow-lg border border-white/5 bg-white"
@@ -533,27 +638,15 @@
     </div>
 
     <!-- Save dialog -->
-    <div
-      v-if="saveDialogOpen"
-      class="modal-overlay"
-      @click.self="saveDialogOpen = false"
-    >
-      <div class="w-full max-w-sm rounded-2xl border border-border bg-card p-6 space-y-4">
-        <h2 class="text-base font-bold font-display text-foreground">Save CV</h2>
-        <div>
-          <label class="text-xs font-medium block mb-1.5 text-foreground">CV Name</label>
-          <input v-model="saveName" placeholder="e.g. Software Engineer – Modern" autofocus class="input-field" />
-        </div>
-        <div class="flex justify-end gap-2">
-          <button @click="saveDialogOpen = false" class="h-9 px-4 rounded-lg text-sm border border-border text-muted-foreground hover:bg-secondary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">Cancel</button>
-          <button
-            @click="handleSaveVersion"
-            :disabled="!saveName.trim()"
-            class="h-9 px-5 rounded-lg text-sm font-medium disabled:opacity-50 bg-primary text-white hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-          >Save CV</button>
-        </div>
-      </div>
-    </div>
+    <SaveAsDialog
+      v-model="saveDialogOpen"
+      kind="cv"
+      :versions="topLevelVersions"
+      :initial-name="saveDialogInitialName"
+      :initial-mode="saveDialogInitialMode"
+      :initial-parent-id="saveDialogInitialParentId"
+      @save="onSaveAs"
+    />
   </div>
 
   <!-- LANDING -->
@@ -604,8 +697,8 @@
             <span class="text-[10px] px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">{{ v.style }}</span>
             <span
               class="text-[10px] px-2 py-0.5 rounded-full"
-              :class="v.language === 'DE' ? 'bg-warning/10 text-warning' : 'bg-primary/10 text-primary'"
-            >{{ v.language }}</span>
+              :class="v.displayLanguage === 'DE' ? 'bg-warning/10 text-warning' : 'bg-primary/10 text-primary'"
+            >{{ v.displayLanguage }}</span>
           </div>
           <p class="text-xs mt-0.5 text-muted-foreground">{{ formatDate(v.createdAt) }}</p>
         </div>
@@ -629,6 +722,13 @@ import api from '../../services/api';
 import { useEmployeeStore } from '../../stores/employee';
 import StepIndicator from '../../components/StepIndicator.vue';
 import TemplateMiniPreview from '../../components/TemplateMiniPreview.vue';
+import SaveAsDialog from '../../components/SaveAsDialog.vue';
+import RolePicker from '../../components/RolePicker.vue';
+import TagPicker from '../../components/TagPicker.vue';
+import { useTaxonomy } from '../../composables/useTaxonomy';
+
+const { roles: taxonomyRoles, skills: taxonomySkills, load: loadTaxonomy } = useTaxonomy();
+loadTaxonomy();
 
 const props = defineProps<{ candidateId?: string }>();
 const employeeStore = useEmployeeStore();
@@ -647,7 +747,7 @@ interface EduItem { id: string; institution: string; degree: string; period: str
 interface CustomSectionEntry { id: string; title: string; subtitle: string; period: string; description: string; }
 interface CustomSection { id: string; heading: string; text: string; entries: CustomSectionEntry[]; }
 interface EditorData {
-  versionName: string; style: CvStyle; language: Language;
+  versionName: string; style: CvStyle; displayLanguage: Language;
   photoDataUrl: string;
   sectionOrder: CvSectionKey[];
   customSections: CustomSection[];
@@ -655,8 +755,14 @@ interface EditorData {
   fullName: string; email: string; phone: string; location: string; nationality: string; linkedin: string; linkedinUrl: string; website: string; github: string; portfolio: string;
   signaturePlaceDate: string; signatureDataUrl: string;
   summary: string; experience: ExpItem[]; education: EduItem[]; skills: string;
+  roleId: string | null; skillIds: string[];
+  // Design knobs (optional — defaults applied at render time for legacy CVs)
+  bodyPt?: number;
+  lineHeight?: number;
+  marginMm?: number;
+  themeColor?: string;
 }
-interface CvVersion { id: string; name: string; label: string; content: string; createdAt: string; style: CvStyle; language: Language; }
+interface CvVersion { id: string; name: string; label: string; content: string; createdAt: string; style: CvStyle; displayLanguage: Language; parentType?: string | null; parentId?: string | null; }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const EXTRACT_STEPS = [
@@ -702,11 +808,55 @@ const PREDEFINED_SECTIONS = [
 ];
 
 // ── CSS for CV styles ─────────────────────────────────────────────────────────
-const CSS: Record<CvStyle, string> = {
-  modern: `body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#1a1a2e;margin:0;padding:0}.w{max-width:780px;margin:0 auto;padding:40px 48px}h1{font-size:2rem;font-weight:700;margin:0 0 4px;color:#0f172a}h2{font-size:.9rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:#0ea5e9;border-bottom:2px solid #0ea5e9;padding-bottom:4px;margin:20px 0 8px}p,li{font-size:.88rem;line-height:1.65;color:#334155;margin:3px 0}ul{padding-left:18px}strong{color:#0f172a}.contact{font-size:.82rem;color:#64748b;margin:4px 0 20px}`,
-  classic: `body{font-family:Georgia,serif;color:#1a1a1a;margin:0;padding:0}.w{max-width:780px;margin:0 auto;padding:48px 56px}h1{font-size:1.9rem;font-weight:700;margin:0 0 4px;border-bottom:3px double #1a1a1a;padding-bottom:8px}h2{font-size:.9rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin:20px 0 6px;color:#1a1a1a}p,li{font-size:.9rem;line-height:1.7;color:#2d2d2d;margin:3px 0}ul{padding-left:20px}.contact{font-size:.82rem;color:#555;margin:4px 0 20px}`,
-  minimal: `body{font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#222;margin:0;padding:0}.w{max-width:760px;margin:0 auto;padding:44px 52px}h1{font-size:1.8rem;font-weight:300;letter-spacing:.04em;margin:0 0 4px}h2{font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:#888;margin:24px 0 6px}p,li{font-size:.87rem;line-height:1.6;color:#444;margin:3px 0}ul{padding-left:16px}hr{border:none;border-top:1px solid #e5e5e5;margin:12px 0}.contact{font-size:.8rem;color:#888;margin:4px 0 20px}`,
-};
+// The preview iframe uses an A4-shaped page (210mm wide) so what you see
+// matches the Puppeteer PDF render. Knobs (font-pt, line-height, margin-mm,
+// theme color) are honored in BOTH the preview and the export.
+function buildCssForPreview(
+  style: CvStyle,
+  bodyPt: number,
+  lineHeight: number,
+  marginMm: number,
+  themeColor: string,
+): string {
+  const h1Pt = +(bodyPt * 2.2).toFixed(1);
+  const h2Pt = +(bodyPt * 0.95).toFixed(1);
+  const smallPt = +(bodyPt * 0.88).toFixed(1);
+  const h2margin = +(bodyPt * 1.4).toFixed(1);
+
+  // A4 page box: 210mm wide. Inner content area = 210mm - 2*marginMm.
+  // We render each "page" as a fixed-height div the iframe scrolls through.
+  const pageCss =
+    `html,body{background:#e5e7eb;margin:0;padding:0}` +
+    `.cv-page{width:210mm;min-height:297mm;background:#fff;margin:8mm auto;` +
+    `box-shadow:0 1px 6px rgba(0,0,0,.15);box-sizing:border-box;padding:${marginMm}mm}` +
+    `.cv-page>.w{width:100%}`;
+
+  const templates: Record<CvStyle, string> = {
+    modern:
+      `body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#1a1a2e}` +
+      `h1{font-size:${h1Pt}pt;font-weight:700;margin:0 0 2pt;color:#0f172a}` +
+      `h2{font-size:${h2Pt}pt;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:${themeColor};border-bottom:1.5pt solid ${themeColor};padding-bottom:2pt;margin:${h2margin}pt 0 4pt}` +
+      `p,li{font-size:${bodyPt}pt;line-height:${lineHeight};color:#334155;margin:1pt 0}` +
+      `ul{padding-left:12pt;margin:1pt 0}strong{color:#0f172a;font-size:${bodyPt}pt}` +
+      `.contact{font-size:${smallPt}pt;color:#64748b;margin:2pt 0 8pt}span{font-size:${smallPt}pt}`,
+    classic:
+      `body{font-family:Georgia,serif;color:#1a1a1a}` +
+      `h1{font-size:${h1Pt}pt;font-weight:700;margin:0 0 2pt;border-bottom:2pt double ${themeColor};padding-bottom:4pt;color:${themeColor}}` +
+      `h2{font-size:${h2Pt}pt;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin:${h2margin}pt 0 4pt;color:${themeColor}}` +
+      `p,li{font-size:${bodyPt}pt;line-height:${lineHeight};color:#2d2d2d;margin:1pt 0}` +
+      `ul{padding-left:12pt;margin:1pt 0}strong{font-size:${bodyPt}pt}` +
+      `.contact{font-size:${smallPt}pt;color:#555;margin:2pt 0 8pt}span{font-size:${smallPt}pt}`,
+    minimal:
+      `body{font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#222}` +
+      `h1{font-size:${h1Pt}pt;font-weight:300;letter-spacing:.03em;margin:0 0 2pt;color:${themeColor}}` +
+      `h2{font-size:${h2Pt}pt;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:${themeColor};margin:${h2margin}pt 0 4pt}` +
+      `p,li{font-size:${bodyPt}pt;line-height:${lineHeight};color:#444;margin:1pt 0}` +
+      `ul{padding-left:11pt;margin:1pt 0}hr{border:none;border-top:1pt solid #e5e5e5;margin:6pt 0}` +
+      `strong{font-size:${bodyPt}pt}.contact{font-size:${smallPt}pt;color:#888;margin:2pt 0 8pt}span{font-size:${smallPt}pt}`,
+  };
+
+  return `*{box-sizing:border-box}${pageCss}${templates[style] || templates.modern}`;
+}
 
 const SECTION_LABELS: Record<string, Record<string, string>> = {
   EN: { summary: 'Summary', experience: 'Experience', education: 'Education', skills: 'Skills' },
@@ -725,7 +875,7 @@ function boldify(text: string): string {
 }
 
 function editorToHtml(d: EditorData): string {
-  const t = SECTION_LABELS[d.language] ?? SECTION_LABELS.EN;
+  const t = SECTION_LABELS[d.displayLanguage] ?? SECTION_LABELS.EN;
   const linkedinDisplay = d.linkedin
     ? ((d as any).linkedinUrl
       ? `<a href="${escapeHtml((d as any).linkedinUrl)}" style="color:inherit;text-decoration:underline">${escapeHtml(d.linkedin)}</a>`
@@ -805,8 +955,15 @@ function editorToHtml(d: EditorData): string {
   return `${header}${rendered}${signatureBlock}`;
 }
 
-function buildHtml(content: string, style: CvStyle) {
-  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>*{box-sizing:border-box}${CSS[style]}</style></head><body><div class="w">${content}</div></body></html>`;
+function buildHtml(content: string, d: EditorData) {
+  const css = buildCssForPreview(
+    d.style,
+    d.bodyPt ?? DEFAULT_BODY_PT,
+    d.lineHeight ?? DEFAULT_LINE_HEIGHT,
+    d.marginMm ?? DEFAULT_MARGIN_MM,
+    d.themeColor ?? DEFAULT_THEME_COLORS[d.style] ?? DEFAULT_THEME_COLORS.modern,
+  );
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>${css}</style></head><body><div class="cv-page"><div class="w">${content}</div></div></body></html>`;
 }
 
 function formatDate(iso: string) {
@@ -826,7 +983,9 @@ const isExporting = ref(false);
 const enhancing = ref(false);
 const addSectionOpen = ref(false);
 const saveDialogOpen = ref(false);
-const saveName = ref('');
+const saveDialogInitialName = ref('');
+const saveDialogInitialMode = ref<'version' | 'variant'>('version');
+const saveDialogInitialParentId = ref<string | null>(null);
 const editingVersionId = ref<string | null>(null);
 const dragKey = ref<string>('');
 const dragOverKey = ref<string>('');
@@ -834,6 +993,12 @@ const contactDragKey = ref<string>('');
 const contactDragOverKey = ref<string>('');
 
 const cvVersions = ref<CvVersion[]>([]);
+
+const topLevelVersions = computed(() =>
+  cvVersions.value
+    .filter(v => !v.parentType)
+    .map(v => ({ id: v.id, title: v.label || v.name }))
+);
 
 const DEFAULT_CONTACT_ORDER = ['email','phone','location','nationality','linkedin','website','github','portfolio'];
 
@@ -848,8 +1013,26 @@ const CONTACT_FIELDS: Record<string, { label: string; model: keyof EditorData; p
   portfolio:   { label: 'Portfolio',   model: 'portfolio',   placeholder: 'anna.dev' },
 };
 
+// Default design knob values — match the previous hardcoded preview CSS
+const DEFAULT_BODY_PT = 8.5;
+const DEFAULT_LINE_HEIGHT = 1.5;
+const DEFAULT_MARGIN_MM = 10;
+const DEFAULT_THEME_COLORS: Record<CvStyle, string> = {
+  modern: '#0ea5e9',
+  classic: '#1a1a1a',
+  minimal: '#888888',
+};
+const PRESET_THEME_COLORS = ['#0ea5e9', '#2563eb', '#7c3aed', '#db2777', '#dc2626', '#ea580c', '#16a34a', '#0d9488', '#1a1a1a', '#888888'];
+
+function resetDesign() {
+  editorData.bodyPt = DEFAULT_BODY_PT;
+  editorData.lineHeight = DEFAULT_LINE_HEIGHT;
+  editorData.marginMm = DEFAULT_MARGIN_MM;
+  editorData.themeColor = DEFAULT_THEME_COLORS[editorData.style];
+}
+
 const emptyEditor = (): EditorData => ({
-  versionName: 'My CV', style: 'modern', language: 'EN',
+  versionName: 'My CV', style: 'modern', displayLanguage: 'EN',
   photoDataUrl: '',
   sectionOrder: ['summary', 'experience', 'education', 'skills'],
   customSections: [],
@@ -857,6 +1040,11 @@ const emptyEditor = (): EditorData => ({
   fullName: '', email: '', phone: '', location: '', nationality: '', linkedin: '', linkedinUrl: '', website: '', github: '', portfolio: '',
   signaturePlaceDate: '', signatureDataUrl: '',
   summary: '', experience: [], education: [], skills: '',
+  roleId: null, skillIds: [],
+  bodyPt: DEFAULT_BODY_PT,
+  lineHeight: DEFAULT_LINE_HEIGHT,
+  marginMm: DEFAULT_MARGIN_MM,
+  themeColor: DEFAULT_THEME_COLORS.modern,
 });
 
 const editorData = reactive<EditorData>(emptyEditor());
@@ -869,22 +1057,76 @@ const photoEditorInput = ref<HTMLInputElement | null>(null);
 const signatureInput = ref<HTMLInputElement | null>(null);
 
 // ── Live preview update ───────────────────────────────────────────────────────
-const previewHtml = computed(() => buildHtml(editorToHtml(editorData), editorData.style));
+const previewHtml = computed(() => buildHtml(editorToHtml(editorData), editorData));
+
+// Page count + current page indicator. We render the CV inside a fixed-width
+// (210mm) page container styled like A4; measuring scrollHeight / pageHeight
+// gives us a close-enough page count. Not byte-perfect with Puppeteer's @page
+// breaks, but matches within ~1 line on real CVs.
+const pageCount = ref(1);
+const currentPage = ref(1);
+
+function measurePages() {
+  const iframe = previewIframe.value;
+  if (!iframe) return;
+  const doc = iframe.contentDocument;
+  if (!doc?.body) return;
+  // Mirror Puppeteer's actual pagination:
+  //   PDF page = A4 (297mm) with @page top/bottom margin = marginMm each.
+  //   Usable content area per page = 297 − 2 × marginMm.
+  // Measure the inner .w element (no padding/min-height) for the true content
+  // height, then divide by usable area. This matches Puppeteer within ~1 line.
+  const wEl = doc.querySelector('.cv-page > .w') as HTMLElement | null;
+  if (!wEl) return;
+  const pxPerMm = 96 / 25.4;
+  const margin = editorData.marginMm ?? DEFAULT_MARGIN_MM;
+  const usablePerPagePx = Math.max(1, (297 - 2 * margin) * pxPerMm);
+  const contentHeightPx = wEl.scrollHeight;
+  const total = Math.max(1, Math.ceil(contentHeightPx / usablePerPagePx));
+  pageCount.value = total;
+  // Current page from iframe scroll. The visible .cv-page box is 297mm tall
+  // with an 8mm top/bottom outer margin, so step = 313mm in the scroll
+  // viewport. Falls back gracefully on small content.
+  const win = iframe.contentWindow;
+  if (win) {
+    const stepPx = (297 + 16) * pxPerMm;
+    const scrollTop = win.scrollY || doc.documentElement.scrollTop || 0;
+    currentPage.value = Math.min(total, Math.max(1, Math.floor(scrollTop / stepPx) + 1));
+  }
+}
+
+function attachIframeScrollListener() {
+  const iframe = previewIframe.value;
+  if (!iframe) return;
+  const win = iframe.contentWindow;
+  if (!win) return;
+  win.addEventListener('scroll', measurePages, { passive: true });
+}
+
+async function writePreviewToIframe(html: string) {
+  if (!previewIframe.value) return;
+  const doc = previewIframe.value.contentDocument;
+  if (!doc) return;
+  doc.open();
+  doc.write(html);
+  doc.close();
+  // Wait a tick for layout
+  await nextTick();
+  // Re-attach scroll listener (lost on doc.open) and measure
+  attachIframeScrollListener();
+  measurePages();
+}
 
 watch(previewHtml, async (html) => {
   if (step.value !== 'editor') return;
   await nextTick();
-  if (!previewIframe.value) return;
-  const doc = previewIframe.value.contentDocument;
-  if (doc) { doc.open(); doc.write(html); doc.close(); }
+  await writePreviewToIframe(html);
 });
 
 watch(step, async (s) => {
   if (s !== 'editor') return;
   await nextTick();
-  if (!previewIframe.value) return;
-  const doc = previewIframe.value.contentDocument;
-  if (doc) { doc.open(); doc.write(previewHtml.value); doc.close(); }
+  await writePreviewToIframe(previewHtml.value);
 });
 
 // ── Experience / Education helpers ────────────────────────────────────────────
@@ -1077,7 +1319,7 @@ async function onCvFileSelect(e: Event) {
         content: cv.htmlContent || '',
         createdAt: cv.createdAt,
         style: cv.style || 'modern',
-        language: cv.language || 'EN',
+        displayLanguage: cv.displayLanguage || 'EN',
       });
     }
 
@@ -1251,6 +1493,12 @@ async function handleExportPdf() {
       contentHtml,
       style: editorData.style,
       filename,
+      design: {
+        bodyPt: editorData.bodyPt ?? DEFAULT_BODY_PT,
+        lineHeight: editorData.lineHeight ?? DEFAULT_LINE_HEIGHT,
+        marginMm: editorData.marginMm ?? DEFAULT_MARGIN_MM,
+        themeColor: editorData.themeColor ?? DEFAULT_THEME_COLORS[editorData.style],
+      },
     }, { responseType: 'blob', headers: apiHeaders.value });
 
     // Download the blob
@@ -1283,7 +1531,9 @@ async function enhanceWithArbeitly() {
       editorData: { ...editorData },
       htmlContent: content,
       style: editorData.style,
-      language: editorData.language,
+      displayLanguage: editorData.displayLanguage,
+      roleId: editorData.roleId,
+      skillIds: editorData.skillIds,
     }, { headers: apiHeaders.value });
 
     const { data } = await api.post(
@@ -1310,10 +1560,30 @@ function startCreate() {
   step.value = 'template';
 }
 
-async function handleSaveVersion() {
-  const name = saveName.value.trim() || editorData.versionName || 'My CV';
+function openSaveDialog() {
+  saveDialogInitialName.value = editorData.versionName || '';
+  if (editingVersionId.value) {
+    const current = cvVersions.value.find(v => v.id === editingVersionId.value);
+    if (current?.parentType === 'variant') {
+      saveDialogInitialMode.value = 'variant';
+      saveDialogInitialParentId.value = current.parentId ?? null;
+    } else {
+      saveDialogInitialMode.value = 'version';
+      saveDialogInitialParentId.value = null;
+    }
+  } else {
+    saveDialogInitialMode.value = topLevelVersions.value.length > 0 ? 'variant' : 'version';
+    saveDialogInitialParentId.value = topLevelVersions.value[0]?.id ?? null;
+  }
+  saveDialogOpen.value = true;
+}
+
+async function onSaveAs(payload: { name: string; mode: 'version' | 'variant'; parentId: string | null }) {
+  const name = payload.name.trim() || editorData.versionName || 'My CV';
   const content = editorToHtml(editorData);
   const editorState = { ...editorData };
+  const parentId = payload.mode === 'variant' ? payload.parentId : null;
+  const parentType = payload.mode === 'variant' ? 'variant' : null;
 
   try {
     if (editingVersionId.value) {
@@ -1322,17 +1592,21 @@ async function handleSaveVersion() {
         editorData: editorState,
         htmlContent: content,
         style: editorData.style,
-        language: editorData.language,
+        displayLanguage: editorData.displayLanguage,
       }, { headers: apiHeaders.value });
       const v = cvVersions.value.find(v => v.id === editingVersionId.value);
-      if (v) { v.name = name; v.label = name; v.content = content; v.style = editorData.style; v.language = editorData.language; }
+      if (v) { v.name = name; v.label = name; v.content = content; v.style = editorData.style; v.displayLanguage = editorData.displayLanguage; }
     } else {
       const { data } = await api.post(`${apiBase.value}/create`, {
         title: name,
         editorData: editorState,
         htmlContent: content,
         style: editorData.style,
-        language: editorData.language,
+        displayLanguage: editorData.displayLanguage,
+        roleId: editorData.roleId,
+        skillIds: editorData.skillIds,
+        parentId,
+        parentType,
       }, { headers: apiHeaders.value });
       const cv = data.data;
       editingVersionId.value = cv.id;
@@ -1341,7 +1615,9 @@ async function handleSaveVersion() {
         name, label: name, content,
         createdAt: cv.createdAt,
         style: editorData.style,
-        language: editorData.language,
+        displayLanguage: editorData.displayLanguage,
+        parentType: cv.parentType ?? null,
+        parentId: cv.parentId ?? null,
       });
     }
   } catch (err) {
@@ -1349,7 +1625,6 @@ async function handleSaveVersion() {
   }
 
   saveDialogOpen.value = false;
-  saveName.value = '';
   step.value = 'landing';
 }
 
@@ -1368,7 +1643,7 @@ async function openCvVersion(v: CvVersion) {
         ...emptyEditor(),
         versionName: cv.title,
         style: cv.style || v.style || 'modern',
-        language: cv.language || v.language || 'EN',
+        displayLanguage: cv.displayLanguage || v.displayLanguage || 'EN',
       });
     }
     editingVersionId.value = v.id;
@@ -1397,7 +1672,9 @@ onMounted(async () => {
       content: cv.htmlContent || '',
       createdAt: cv.createdAt,
       style: cv.style || 'modern',
-      language: cv.language || 'EN',
+      displayLanguage: cv.displayLanguage || 'EN',
+      parentType: cv.parentType ?? null,
+      parentId: cv.parentId ?? null,
     }));
   } catch (err) {
     console.error('Failed to load CVs:', err);

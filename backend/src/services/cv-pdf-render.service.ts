@@ -11,20 +11,33 @@ const COMPRESSION_LEVELS = [
   { pt: 6.0, lh: 1.10, mm: 5 },
 ];
 
-function buildCss(style: CvPdfStyle, bodyPt: number, marginMm: number, lh: number): string {
+const DEFAULT_THEME_COLORS: Record<CvPdfStyle, string> = {
+  modern: '#0ea5e9',
+  classic: '#1a1a1a',
+  minimal: '#888888',
+};
+
+function buildCss(
+  style: CvPdfStyle,
+  bodyPt: number,
+  marginMm: number,
+  lh: number,
+  themeColor?: string,
+): string {
   const h1Pt = Math.round(bodyPt * 2.2 * 10) / 10;
-  const h2Pt = Math.round(bodyPt * 0.88 * 10) / 10;
+  const h2Pt = Math.round(bodyPt * 0.95 * 10) / 10;
   const smallPt = Math.round(bodyPt * 0.88 * 10) / 10;
   const padV = Math.round(bodyPt * 2.2 * 10) / 10;
   const padH = Math.round(bodyPt * 3.4 * 10) / 10;
-  const h2margin = Math.round(bodyPt * 1.3 * 10) / 10;
+  const h2margin = Math.round(bodyPt * 1.4 * 10) / 10;
+  const tc = themeColor || DEFAULT_THEME_COLORS[style] || DEFAULT_THEME_COLORS.modern;
 
   const templates: Record<CvPdfStyle, string> = {
     modern:
       `body{font-family:'Inter','Helvetica Neue',Arial,sans-serif;color:#1a1a2e;margin:0;padding:0}`
       + `.w{margin:0 auto;padding:${padV}pt ${padH}pt}`
       + `h1{font-size:${h1Pt}pt;font-weight:700;margin:0 0 2pt;color:#0f172a}`
-      + `h2{font-size:${h2Pt}pt;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#0ea5e9;border-bottom:1.5pt solid #0ea5e9;padding-bottom:2pt;margin:${h2margin}pt 0 4pt}`
+      + `h2{font-size:${h2Pt}pt;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:${tc};border-bottom:1.5pt solid ${tc};padding-bottom:2pt;margin:${h2margin}pt 0 4pt}`
       + `p,li{font-size:${bodyPt}pt;line-height:${lh};color:#334155;margin:1pt 0}`
       + `ul{padding-left:12pt;margin:1pt 0}`
       + `strong{color:#0f172a;font-size:${bodyPt}pt}`
@@ -34,8 +47,8 @@ function buildCss(style: CvPdfStyle, bodyPt: number, marginMm: number, lh: numbe
     classic:
       `body{font-family:Georgia,'Times New Roman',serif;color:#1a1a1a;margin:0;padding:0}`
       + `.w{margin:0 auto;padding:${padV}pt ${padH}pt}`
-      + `h1{font-size:${h1Pt}pt;font-weight:700;margin:0 0 2pt;border-bottom:2pt double #1a1a1a;padding-bottom:4pt}`
-      + `h2{font-size:${h2Pt}pt;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin:${h2margin}pt 0 4pt;color:#1a1a1a}`
+      + `h1{font-size:${h1Pt}pt;font-weight:700;margin:0 0 2pt;border-bottom:2pt double ${tc};padding-bottom:4pt;color:${tc}}`
+      + `h2{font-size:${h2Pt}pt;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin:${h2margin}pt 0 4pt;color:${tc}}`
       + `p,li{font-size:${bodyPt}pt;line-height:${lh};color:#2d2d2d;margin:1pt 0}`
       + `ul{padding-left:12pt;margin:1pt 0}`
       + `strong{font-size:${bodyPt}pt}`
@@ -45,8 +58,8 @@ function buildCss(style: CvPdfStyle, bodyPt: number, marginMm: number, lh: numbe
     minimal:
       `body{font-family:'Helvetica Neue',Arial,sans-serif;color:#222;margin:0;padding:0}`
       + `.w{margin:0 auto;padding:${padV}pt ${padH}pt}`
-      + `h1{font-size:${h1Pt}pt;font-weight:300;letter-spacing:.03em;margin:0 0 2pt}`
-      + `h2{font-size:${h2Pt}pt;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:#888;margin:${h2margin}pt 0 4pt}`
+      + `h1{font-size:${h1Pt}pt;font-weight:300;letter-spacing:.03em;margin:0 0 2pt;color:${tc}}`
+      + `h2{font-size:${h2Pt}pt;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:${tc};margin:${h2margin}pt 0 4pt}`
       + `p,li{font-size:${bodyPt}pt;line-height:${lh};color:#444;margin:1pt 0}`
       + `ul{padding-left:11pt;margin:1pt 0}`
       + `hr{border:none;border-top:1pt solid #e5e5e5;margin:6pt 0}`
@@ -95,7 +108,18 @@ function buildFullHtml(css: string, content: string): string {
 </html>`;
 }
 
-export async function renderCvPdf(contentHtml: string, style: CvPdfStyle = 'modern'): Promise<Buffer> {
+export interface CvDesignOptions {
+  bodyPt?: number;
+  lineHeight?: number;
+  marginMm?: number;
+  themeColor?: string;
+}
+
+export async function renderCvPdf(
+  contentHtml: string,
+  style: CvPdfStyle = 'modern',
+  design?: CvDesignOptions,
+): Promise<Buffer> {
   const normalized = preprocessHtml(contentHtml);
 
   const browser = await puppeteer.launch({
@@ -109,6 +133,25 @@ export async function renderCvPdf(contentHtml: string, style: CvPdfStyle = 'mode
   try {
     const page = await browser.newPage();
 
+    // If the caller specified explicit design values, honor them exactly —
+    // no auto-compression. The user has chosen these settings deliberately
+    // and the preview matches them; the export should too.
+    if (design && (design.bodyPt || design.lineHeight || design.marginMm || design.themeColor)) {
+      const bodyPt = design.bodyPt ?? 8.5;
+      const lh = design.lineHeight ?? 1.5;
+      const marginMm = design.marginMm ?? 10;
+      const css = buildCss(style, bodyPt, marginMm, lh, design.themeColor);
+      const html = buildFullHtml(css, normalized);
+      await page.setContent(html, { waitUntil: 'networkidle0' });
+      const pdfBuffer = await page.pdf({
+        format: 'A4',
+        printBackground: true,
+        margin: { top: `${marginMm}mm`, bottom: `${marginMm}mm`, left: `${marginMm}mm`, right: `${marginMm}mm` },
+      });
+      return Buffer.from(pdfBuffer);
+    }
+
+    // Legacy path: no explicit design → auto-fit through compression levels
     for (const level of COMPRESSION_LEVELS) {
       const css = buildCss(style, level.pt, level.mm, level.lh);
       const html = buildFullHtml(css, normalized);
@@ -121,10 +164,6 @@ export async function renderCvPdf(contentHtml: string, style: CvPdfStyle = 'mode
         margin: { top: `${level.mm}mm`, bottom: `${level.mm}mm`, left: `${level.mm}mm`, right: `${level.mm}mm` },
       });
 
-      // Check page count — accept if ≤ 2 pages
-      // Puppeteer doesn't expose page count directly, so estimate by file size
-      // or just use the first level that produces a reasonable size.
-      // For a more accurate check, we count pages via a second pass.
       const pageCount = await page.evaluate(() => {
         const body = document.body;
         const pageHeight = 1122; // A4 at 96dpi ≈ 1122px

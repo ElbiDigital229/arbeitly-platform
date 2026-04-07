@@ -2,7 +2,7 @@ import { cvService } from '../services/cv.service.js';
 import { success } from '../utils/response.js';
 import { HttpError } from '../errors/HttpError.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
-import { renderCvPdf, type CvPdfStyle } from '../services/cv-pdf-render.service.js';
+import { renderCvPdf, type CvPdfStyle, type CvDesignOptions } from '../services/cv-pdf-render.service.js';
 
 export const cvController = {
   uploadCV: asyncHandler(async (req, res) => {
@@ -21,6 +21,11 @@ export const cvController = {
   getCVs: asyncHandler(async (req, res) => {
     const cvs = await cvService.getCVs(req.user!.id);
     success(res, cvs);
+  }),
+
+  getCVTree: asyncHandler(async (req, res) => {
+    const tree = await cvService.getVersionTree(req.user!.id);
+    success(res, tree);
   }),
 
   getCVById: asyncHandler(async (req, res) => {
@@ -49,13 +54,14 @@ export const cvController = {
   }),
 
   exportCVFromHtml: asyncHandler(async (req, res) => {
-    const { contentHtml, style, filename } = req.body as {
+    const { contentHtml, style, filename, design } = req.body as {
       contentHtml?: string;
       style?: CvPdfStyle;
       filename?: string;
+      design?: CvDesignOptions;
     };
     if (!contentHtml) throw HttpError.badRequest('contentHtml is required');
-    const pdfBuffer = await renderCvPdf(contentHtml, style || 'modern');
+    const pdfBuffer = await renderCvPdf(contentHtml, style || 'modern', design);
     const name = filename || 'cv-export.pdf';
     res.set({
       'Content-Type': 'application/pdf',

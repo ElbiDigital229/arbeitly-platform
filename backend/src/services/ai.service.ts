@@ -1,6 +1,12 @@
 import type Anthropic from '@anthropic-ai/sdk';
 import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
+import mammoth from 'mammoth';
 import { aiComplete, parseAiJson } from './external/ai-client.js';
+
+async function extractTextFromDocx(buffer: Buffer): Promise<string> {
+  const { value } = await mammoth.extractRawText({ buffer });
+  return value;
+}
 
 async function extractTextFromPdf(buffer: Buffer): Promise<string> {
   const data = new Uint8Array(buffer);
@@ -205,8 +211,17 @@ JSON structure:
         } as Anthropic.ImageBlockParam,
         { type: 'text', text: prompt },
       ];
+    } else if (
+      mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+      mimeType === 'application/msword'
+    ) {
+      // .docx is a ZIP archive — extract raw text via mammoth.
+      // .doc (legacy binary) is best-effort: mammoth may still pick up some text.
+      const docxText = await extractTextFromDocx(fileBuffer);
+      console.log('[AI] Extracted DOCX text length:', docxText.length);
+      messageContent = [{ type: 'text', text: `${prompt}\n\nCV TEXT:\n${docxText}` }];
     } else {
-      // Word docs or other formats — send as document block
+      // Unknown format — best-effort UTF-8 fallback
       messageContent = [{ type: 'text', text: `${prompt}\n\nCV TEXT:\n${fileBuffer.toString('utf-8')}` }];
     }
 

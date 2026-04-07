@@ -2,7 +2,7 @@ import { employeeService } from '../services/employee.service.js';
 import { cvEnhanceService } from '../services/cv-enhance.service.js';
 import { clService } from '../services/cl.service.js';
 import { jobDiscoveryService } from '../services/job-discovery.service.js';
-import { renderCvPdf, type CvPdfStyle } from '../services/cv-pdf-render.service.js';
+import { renderCvPdf, type CvPdfStyle, type CvDesignOptions } from '../services/cv-pdf-render.service.js';
 import { success } from '../utils/response.js';
 import { HttpError } from '../errors/HttpError.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
@@ -88,13 +88,14 @@ export const employeeController = {
 
   exportCandidateCvHtml: asyncHandler(async (req, res) => {
     await employeeService.verifyAssignment(req.user!.id, req.params.id);
-    const { contentHtml, style, filename } = req.body as {
+    const { contentHtml, style, filename, design } = req.body as {
       contentHtml?: string;
       style?: CvPdfStyle;
       filename?: string;
+      design?: CvDesignOptions;
     };
     if (!contentHtml) throw HttpError.badRequest('contentHtml is required');
-    const pdfBuffer = await renderCvPdf(contentHtml, style || 'modern');
+    const pdfBuffer = await renderCvPdf(contentHtml, style || 'modern', design);
     const name = filename || 'cv-export.pdf';
     res.set({
       'Content-Type': 'application/pdf',
@@ -161,8 +162,8 @@ export const employeeController = {
 
   createCandidateCL: asyncHandler(async (req, res) => {
     await employeeService.verifyAssignment(req.user!.id, req.params.id);
-    const { title, content } = req.body;
-    success(res, await clService.createCoverLetter(req.params.id, title, content), 201);
+    const { title, content, parentId, parentType } = req.body;
+    success(res, await clService.createCoverLetter(req.params.id, title, content, { parentId, parentType }), 201);
   }),
 
   updateCandidateCL: asyncHandler(async (req, res) => {
