@@ -14,7 +14,6 @@ import jobDiscoveryRoutes from './job-discovery.routes.js';
 import faqRoutes from './faq.routes.js';
 import filesRoutes from './files.routes.js';
 import taxonomyRoutes from './taxonomy.routes.js';
-import browseJobsRoutes from './browse-jobs.routes.js';
 
 const router = Router();
 
@@ -31,7 +30,6 @@ router.use('/jobs', jobDiscoveryRoutes);
 router.use('/faq', faqRoutes);
 router.use('/files', filesRoutes);
 router.use('/taxonomy', taxonomyRoutes);
-router.use('/browse-jobs', browseJobsRoutes);
 
 // Activity feed
 router.get('/activity', authenticate, async (req, res) => {

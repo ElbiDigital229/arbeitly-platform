@@ -84,7 +84,6 @@ const auth = useAuthStore();
 const router = useRouter();
 
 const navItems: { to: string; icon: string; label: string; pro?: boolean }[] = [
-  { to: '/candidate/browse', icon: 'mdi-magnify', label: 'Browse jobs' },
   { to: '/candidate/applications', icon: 'mdi-view-column-outline', label: 'Applications' },
   { to: '/candidate/cv', icon: 'mdi-file-document-outline', label: 'CV' },
   { to: '/candidate/files', icon: 'mdi-folder-outline', label: 'Files' },

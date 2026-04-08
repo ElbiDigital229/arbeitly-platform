@@ -53,12 +53,6 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
-      path: '/onboarding/simple',
-      name: 'SimpleOnboarding',
-      component: () => import('../views/SimpleOnboardingView.vue'),
-      meta: { requiresAuth: true },
-    },
-    {
       path: '/candidate/forgot-password',
       name: 'ForgotPassword',
       component: () => import('../views/ForgotPasswordView.vue'),
@@ -80,11 +74,6 @@ const router = createRouter({
           path: 'applications',
           name: 'Applications',
           component: () => import('../views/candidate/ApplicationsView.vue'),
-        },
-        {
-          path: 'browse',
-          name: 'BrowseJobs',
-          component: () => import('../views/candidate/BrowseJobsView.vue'),
         },
         {
           path: 'cv',

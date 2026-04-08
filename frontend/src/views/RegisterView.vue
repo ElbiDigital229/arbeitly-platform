@@ -149,7 +149,10 @@ async function handleRegister() {
   try {
     await auth.register(email.value, password.value, confirmPassword.value);
     if (isFree.value) {
-      router.push('/onboarding/simple');
+      // Free tier goes straight to the dashboard. No onboarding gate —
+      // they upload a CV and start tracking jobs manually. Onboarding
+      // is reserved for the upgrade-to-paid moment.
+      router.push('/candidate/applications');
     } else {
       router.push({ path: '/checkout', query: { plan: selectedPlan.value.id } });
     }
