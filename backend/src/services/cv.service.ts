@@ -4,6 +4,7 @@ import { minioClient, ensureBucketExists } from '../config/minio.js';
 import { env } from '../config/env.js';
 import { cvRepository } from '../repositories/cv.repository.js';
 import { aiService } from './ai.service.js';
+import { aiEnricherService } from './ai-enricher.service.js';
 import { HttpError } from '../errors/HttpError.js';
 import { activityService } from './activity.service.js';
 import { extractAllImages } from './pdf-image.service.js';
@@ -71,8 +72,56 @@ export const cvService = {
       user: { connect: { id: userId } },
     });
 
+    // 4. Enrich the candidate's profile with structured taxonomy IDs from
+    // the CV. Non-blocking — if it fails the CV is still saved, the profile
+    // simply doesn't get auto-populated. Only fills fields that are still
+    // empty so we never overwrite a manual user choice from onboarding.
+    if (parsedData) {
+      this.enrichProfileFromCv(userId, parsedData).catch((err) => {
+        console.warn('[cv] profile enrichment from CV failed (non-fatal):', err?.message ?? err);
+      });
+    }
+
     activityService.log(userId, 'cv', 'Uploaded CV', title);
     return cv;
+  },
+
+  /**
+   * Background job: read structured fields from a parsed CV and fill in
+   * any empty taxonomy columns on the candidate's profile. Existing values
+   * (from manual onboarding) are preserved.
+   */
+  async enrichProfileFromCv(userId: string, parsedData: ParsedCVData) {
+    const enriched = await aiEnricherService.enrichCandidateFromCv(parsedData as any);
+    const profile = await prisma.candidateProfile.findUnique({ where: { userId } });
+    if (!profile) return;
+
+    const update: Record<string, any> = {};
+    if (!profile.currentRoleId && enriched.currentRoleId) update.currentRoleId = enriched.currentRoleId;
+    if ((!profile.targetRoleIds || profile.targetRoleIds.length === 0) && enriched.targetRoleIds.length) {
+      update.targetRoleIds = enriched.targetRoleIds;
+    }
+    if ((!profile.skillIds || profile.skillIds.length === 0) && enriched.skillIds.length) {
+      update.skillIds = enriched.skillIds;
+    }
+    if ((!profile.targetIndustryIds || profile.targetIndustryIds.length === 0) && enriched.targetIndustryIds.length) {
+      update.targetIndustryIds = enriched.targetIndustryIds;
+    }
+    if (profile.yearsExperienceMin == null && enriched.yearsExperienceMin != null) {
+      update.yearsExperienceMin = enriched.yearsExperienceMin;
+    }
+    if (profile.yearsExperienceMax == null && enriched.yearsExperienceMax != null) {
+      update.yearsExperienceMax = enriched.yearsExperienceMax;
+    }
+    if (!profile.baseCity && enriched.baseCity) update.baseCity = enriched.baseCity;
+    if (!profile.baseCountry && enriched.baseCountry) update.baseCountry = enriched.baseCountry;
+    if ((!profile.candidateLanguages || (Array.isArray(profile.candidateLanguages) && profile.candidateLanguages.length === 0)) && enriched.candidateLanguages.length) {
+      update.candidateLanguages = enriched.candidateLanguages;
+    }
+
+    if (Object.keys(update).length === 0) return;
+    await prisma.candidateProfile.update({ where: { userId }, data: update });
+    console.log(`[cv] enriched candidate ${userId} with ${Object.keys(update).join(', ')}`);
   },
 
   async createCV(userId: string, dto: CreateCVDtoType) {

@@ -4,6 +4,7 @@ import { adminPromptRepository } from '../repositories/admin-prompt.repository.j
 import { cvEnhanceService } from './cv-enhance.service.js';
 import { HttpError } from '../errors/HttpError.js';
 import { aiCompleteJson } from './external/ai-client.js';
+import { aiEnricherService } from './ai-enricher.service.js';
 import type { CreateJobDiscoveryDtoType } from '../dtos/job-discovery.dto.js';
 
 const DEFAULT_JOB_MATCHING_PROMPT = `You are an expert job-matching analyst for Arbeitly, a German job-search platform.
@@ -38,27 +39,83 @@ export const jobDiscoveryService = {
   },
 
   async createJob(dto: CreateJobDiscoveryDtoType, addedById: string) {
+    // Try to enrich with AI — non-blocking if it fails (the job still gets
+    // created as free-text and will simply score lower until re-enriched).
+    let enriched: Awaited<ReturnType<typeof aiEnricherService.enrichJob>> | null = null;
+    try {
+      enriched = await aiEnricherService.enrichJob({
+        title: dto.title,
+        company: dto.company,
+        description: dto.description,
+        requirements: dto.requirements,
+        location: dto.location,
+        salary: dto.salary,
+      });
+    } catch (err: any) {
+      console.warn('[job-discovery] AI enrichment failed (non-fatal):', err?.message ?? err);
+    }
+
     return jobDiscoveryRepository.create({
       ...dto,
       url: dto.url || undefined,
       addedBy: { connect: { id: addedById } },
+      ...(enriched ?? {}),
     });
   },
 
   async bulkCreate(jobs: CreateJobDiscoveryDtoType[], addedById: string) {
-    const result = await prisma.jobDiscovery.createMany({
-      data: jobs.map((j) => ({
-        title: j.title,
-        company: j.company,
-        url: j.url || null,
-        description: j.description || null,
-        location: j.location || null,
-        salary: j.salary || null,
-        requirements: j.requirements || null,
-        addedById,
-      })),
+    // Enrich each one with AI; on failure, fall back to free-text only.
+    // Done sequentially so we don't fan out and burn rate limits on big imports.
+    let created = 0;
+    for (const j of jobs) {
+      let enriched: Awaited<ReturnType<typeof aiEnricherService.enrichJob>> | null = null;
+      try {
+        enriched = await aiEnricherService.enrichJob({
+          title: j.title,
+          company: j.company,
+          description: j.description,
+          requirements: j.requirements,
+          location: j.location,
+          salary: j.salary,
+        });
+      } catch (err: any) {
+        console.warn('[job-discovery] bulk AI enrichment failed for', j.title, err?.message ?? err);
+      }
+      await prisma.jobDiscovery.create({
+        data: {
+          title: j.title,
+          company: j.company,
+          url: j.url || null,
+          description: j.description || null,
+          location: j.location || null,
+          salary: j.salary || null,
+          requirements: j.requirements || null,
+          addedById,
+          ...(enriched ?? {}),
+        },
+      });
+      created++;
+    }
+    return { created };
+  },
+
+  /**
+   * Re-run AI enrichment on an existing job. Useful for back-filling
+   * structured fields on jobs that were created before the enricher
+   * existed, or after editing the description.
+   */
+  async reEnrichJob(jobId: string) {
+    const job = await jobDiscoveryRepository.findById(jobId);
+    if (!job) throw HttpError.notFound('Job not found');
+    const enriched = await aiEnricherService.enrichJob({
+      title: job.title,
+      company: job.company,
+      description: job.description ?? undefined,
+      requirements: job.requirements ?? undefined,
+      location: job.location ?? undefined,
+      salary: job.salary ?? undefined,
     });
-    return { created: result.count };
+    return jobDiscoveryRepository.update(jobId, enriched);
   },
 
   async deleteJob(id: string) {

@@ -25,5 +25,6 @@ router.post('/bulk', validate(BulkCreateJobDiscoveryDto), jobDiscoveryController
 router.delete('/:id', jobDiscoveryController.deleteJob);
 router.post('/:id/score/:candidateId', aiRateLimiter, jobDiscoveryController.scoreRelevance);
 router.post('/:id/queue/:candidateId', aiRateLimiter, jobDiscoveryController.addToQueue);
+router.post('/:id/re-enrich', aiRateLimiter, jobDiscoveryController.reEnrich);
 
 export default router;

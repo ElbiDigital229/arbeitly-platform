@@ -31,4 +31,8 @@ export const jobDiscoveryController = {
   addToQueue: asyncHandler(async (req, res) => {
     success(res, await jobDiscoveryService.addToQueue(req.params.id, req.params.candidateId, req.user!.id), 201);
   }),
+
+  reEnrich: asyncHandler(async (req, res) => {
+    success(res, await jobDiscoveryService.reEnrichJob(req.params.id));
+  }),
 };
