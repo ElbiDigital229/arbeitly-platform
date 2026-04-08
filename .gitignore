@@ -8,3 +8,12 @@ readme.md
 **/.env.*
 *.log
 .DS_Store
+
+# Stray Next.js / scratch project artifacts (not part of this repo)
+/.next/
+/next-env.d.ts
+/tsconfig.tsbuildinfo
+/src/
+/cv-tailor/
+/tnms_export.tar.gz
+**/*.tsbuildinfo
