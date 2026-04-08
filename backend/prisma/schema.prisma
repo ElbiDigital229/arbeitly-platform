@@ -283,6 +283,25 @@ model JobDiscovery {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  // Structured fields for deterministic matching (all nullable — free-text
+  // jobs still work, they just score lower on fields they can't prove).
+  roleId             String?
+  roleFamily         String?
+  skillIds           String[] @default([])
+  industryIds        String[] @default([])
+  city               String?
+  country            String?
+  remote             Boolean  @default(false)
+  salaryMin          Int?
+  salaryMax          Int?
+  salaryCurrency     String?  @default("EUR")
+  yearsExperienceMin Int?
+  yearsExperienceMax Int?
+  languagesRequired  String[] @default([])
+  workAuthRequired   String[] @default([])
+  seniority          String?
+  isPublished        Boolean  @default(true)
+
   addedBy    User                @relation(fields: [addedById], references: [id])
   queueItems CandidateJobQueue[]
   generatedCvs CV[]

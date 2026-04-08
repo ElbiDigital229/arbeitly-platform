@@ -1,0 +1,17 @@
+-- AlterTable
+ALTER TABLE "JobDiscovery" ADD COLUMN     "city" TEXT,
+ADD COLUMN     "country" TEXT,
+ADD COLUMN     "industryIds" TEXT[] DEFAULT ARRAY[]::TEXT[],
+ADD COLUMN     "isPublished" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN     "languagesRequired" TEXT[] DEFAULT ARRAY[]::TEXT[],
+ADD COLUMN     "remote" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN     "roleFamily" TEXT,
+ADD COLUMN     "roleId" TEXT,
+ADD COLUMN     "salaryCurrency" TEXT DEFAULT 'EUR',
+ADD COLUMN     "salaryMax" INTEGER,
+ADD COLUMN     "salaryMin" INTEGER,
+ADD COLUMN     "seniority" TEXT,
+ADD COLUMN     "skillIds" TEXT[] DEFAULT ARRAY[]::TEXT[],
+ADD COLUMN     "workAuthRequired" TEXT[] DEFAULT ARRAY[]::TEXT[],
+ADD COLUMN     "yearsExperienceMax" INTEGER,
+ADD COLUMN     "yearsExperienceMin" INTEGER;

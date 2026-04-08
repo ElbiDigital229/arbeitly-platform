@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { prisma } from '../config/prisma.js';
+import { resetRoleFamilyCache } from './matching.service.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SEED_PATH = join(__dirname, '..', 'config', 'taxonomy-seed.json');
@@ -55,6 +56,7 @@ export const taxonomyService = {
       i++;
     }
 
+    resetRoleFamilyCache();
     console.log(
       `[taxonomy] synced ${seed.roles.length} roles, ${seed.industries.length} industries, ${seed.skills.length} skills`,
     );

@@ -82,6 +82,11 @@ const router = createRouter({
           component: () => import('../views/candidate/ApplicationsView.vue'),
         },
         {
+          path: 'browse',
+          name: 'BrowseJobs',
+          component: () => import('../views/candidate/BrowseJobsView.vue'),
+        },
+        {
           path: 'cv',
           name: 'CV',
           component: () => import('../views/candidate/CVBuilderView.vue'),
