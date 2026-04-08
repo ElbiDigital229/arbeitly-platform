@@ -12,6 +12,7 @@ import planRoutes from './plan.routes.js';
 import paymentRoutes from './payment.routes.js';
 import jobDiscoveryRoutes from './job-discovery.routes.js';
 import faqRoutes from './faq.routes.js';
+import filesRoutes from './files.routes.js';
 
 const router = Router();
 
@@ -26,6 +27,7 @@ router.use('/plans', planRoutes);
 router.use('/payment', paymentRoutes);
 router.use('/jobs', jobDiscoveryRoutes);
 router.use('/faq', faqRoutes);
+router.use('/files', filesRoutes);
 
 // Activity feed
 router.get('/activity', authenticate, async (req, res) => {

@@ -220,22 +220,22 @@ export const employeeService = {
   // Generic file uploads
   async listCandidateFiles(employeeId: string, candidateId: string) {
     await this.verifyAssignment(employeeId, candidateId);
-    return candidateFileService.list(candidateId);
+    return candidateFileService.listForEmployee(candidateId);
   },
 
   async uploadCandidateFile(employeeId: string, candidateId: string, file: Express.Multer.File, label?: string) {
     await this.verifyAssignment(employeeId, candidateId);
-    return candidateFileService.upload(candidateId, employeeId, file, label);
+    return candidateFileService.upload(candidateId, employeeId, file, 'EMPLOYEE', label);
   },
 
   async downloadCandidateFile(employeeId: string, candidateId: string, fileId: string) {
     await this.verifyAssignment(employeeId, candidateId);
-    return candidateFileService.getDownloadStream(candidateId, fileId);
+    return candidateFileService.getDownloadStream(candidateId, fileId, 'employee');
   },
 
   async deleteCandidateFile(employeeId: string, candidateId: string, fileId: string) {
     await this.verifyAssignment(employeeId, candidateId);
-    return candidateFileService.delete(candidateId, fileId, employeeId);
+    return candidateFileService.delete(candidateId, fileId, employeeId, 'employee');
   },
 
   async getCandidateCLs(employeeId: string, candidateId: string) {

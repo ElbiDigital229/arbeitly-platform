@@ -25,6 +25,12 @@ enum ApplicationStatus {
   FAILED
 }
 
+enum CandidateFileSource {
+  ONBOARDING        // candidate uploaded during onboarding — both candidate and employee see
+  CANDIDATE_PRIVATE // candidate uploaded after onboarding — only candidate sees
+  EMPLOYEE          // employee uploaded/generated — both see
+}
+
 model User {
   id                 String   @id @default(cuid())
   email              String   @unique
@@ -61,6 +67,7 @@ model CandidateFile {
   size         Int
   storageKey   String
   label        String?
+  source       CandidateFileSource @default(EMPLOYEE)
   createdAt    DateTime @default(now())
 
   candidate  User  @relation("FilesCandidate", fields: [candidateId], references: [id], onDelete: Cascade)
