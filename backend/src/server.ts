@@ -6,6 +6,7 @@ import helmet from 'helmet';
 import { env } from './config/env.js';
 import routes from './routes/index.js';
 import { errorHandler } from './middleware/errorHandler.middleware.js';
+import { taxonomyService } from './services/taxonomy.service.js';
 
 const app = express();
 
@@ -43,8 +44,13 @@ app.use((_req, res) => {
 // Error handler (must be last)
 app.use(errorHandler);
 
-app.listen(env.PORT, () => {
+app.listen(env.PORT, async () => {
   console.log(`Arbeitly backend running on http://localhost:${env.PORT}`);
+  try {
+    await taxonomyService.syncFromSeed();
+  } catch (err) {
+    console.error('[taxonomy] seed sync failed:', err);
+  }
 });
 
 export default app;

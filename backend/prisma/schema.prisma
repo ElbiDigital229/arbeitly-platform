@@ -117,11 +117,67 @@ model CandidateProfile {
   preferredLanguage    String   @default("en")
   marketingData        Json?
   onboardingData       Json?
+
+  // Taxonomy-driven structured fields (all nullable for backwards compat)
+  currentRoleId        String?
+  targetRoleIds        String[] @default([])
+  targetIndustryIds    String[] @default([])
+  skillIds             String[] @default([])
+  yearsExperienceMin   Int?
+  yearsExperienceMax   Int?
+  salaryMin            Int?
+  salaryMax            Int?
+  salaryCurrency       String?  @default("EUR")
+  baseCity             String?
+  baseCountry          String?
+  acceptsRemote        Boolean  @default(false)
+  willingToRelocate    Boolean  @default(false)
+  acceptedCities       String[] @default([])
+  candidateLanguages   Json?
+  workAuth             String[] @default([])
+  careerGoal           String?
+
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   plan Plan? @relation(fields: [planId], references: [id])
+}
+
+model JobRole {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  name        String
+  family      String
+  description String?
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([family])
+}
+
+model Industry {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  name      String
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Skill {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  name      String
+  families  String[] @default([])
+  aliases   String[] @default([])
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model CV {

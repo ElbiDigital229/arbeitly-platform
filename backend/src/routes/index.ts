@@ -13,6 +13,7 @@ import paymentRoutes from './payment.routes.js';
 import jobDiscoveryRoutes from './job-discovery.routes.js';
 import faqRoutes from './faq.routes.js';
 import filesRoutes from './files.routes.js';
+import taxonomyRoutes from './taxonomy.routes.js';
 
 const router = Router();
 
@@ -28,6 +29,7 @@ router.use('/payment', paymentRoutes);
 router.use('/jobs', jobDiscoveryRoutes);
 router.use('/faq', faqRoutes);
 router.use('/files', filesRoutes);
+router.use('/taxonomy', taxonomyRoutes);
 
 // Activity feed
 router.get('/activity', authenticate, async (req, res) => {

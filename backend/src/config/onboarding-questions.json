@@ -1,0 +1,113 @@
+{
+  "_README": [
+    "This file defines the candidate onboarding form. Edit it to add, remove, reword, or reorder questions WITHOUT touching any code.",
+    "After editing, the change is live on the next page reload — no rebuild, no restart.",
+    "",
+    "TOP LEVEL:",
+    "  steps[]   ordered list of steps shown in the wizard",
+    "",
+    "STEP:",
+    "  key       internal id (do not change once a question has answers in the DB)",
+    "  title     header shown to the candidate",
+    "  subtitle  optional small text under the title",
+    "  questions[]   list of questions on this step",
+    "",
+    "QUESTION:",
+    "  key       maps to a column on CandidateProfile (or to onboardingData JSON for legacy free-text fields)",
+    "  label     the text the candidate sees",
+    "  help      optional gray helper text under the input",
+    "  required  true | false",
+    "  type      one of:",
+    "              text          single-line text input",
+    "              textarea      multi-line text input",
+    "              number        numeric input",
+    "              select        dropdown — needs `options`",
+    "              radio         radio buttons — needs `options`",
+    "              checkboxes    multi-select boxes — needs `options`",
+    "              boolean       single checkbox",
+    "              role-picker   pick one role from the JobRole taxonomy",
+    "              role-multi    pick many roles from JobRole",
+    "              skill-multi   pick many skills from Skill",
+    "              industry-multi  pick many industries from Industry",
+    "              salary-range  min/max/currency triple input",
+    "              languages     list of {language, level} entries",
+    "              city-country  paired city + country inputs",
+    "  options[] for select/radio/checkboxes — array of strings OR {value,label} objects",
+    "  visibleIf optional condition: { key: 'otherQuestionKey', equals: 'value' } — hides until matched",
+    "  placeholder optional placeholder text"
+  ],
+
+  "steps": [
+    {
+      "key": "basics",
+      "title": "Basics",
+      "subtitle": "Tell us who you are.",
+      "questions": [
+        { "key": "firstName", "label": "First name", "type": "text", "required": true },
+        { "key": "lastName", "label": "Last name", "type": "text", "required": true },
+        { "key": "phone", "label": "Phone", "type": "text", "placeholder": "+49 …" },
+        { "key": "preferredLanguage", "label": "Preferred language", "type": "select", "required": true,
+          "options": [
+            { "value": "en", "label": "English" },
+            { "value": "de", "label": "Deutsch" }
+          ]
+        }
+      ]
+    },
+
+    {
+      "key": "current_situation",
+      "title": "Where you are now",
+      "questions": [
+        { "key": "currentRoleId", "label": "Your current role", "type": "role-picker", "required": true,
+          "help": "Pick the closest match from the dropdown — you can refine later." },
+        { "key": "yearsExperienceMin", "label": "Years of experience (min)", "type": "number" },
+        { "key": "yearsExperienceMax", "label": "Years of experience (max)", "type": "number" },
+        { "key": "skillIds", "label": "Your skills", "type": "skill-multi", "required": true,
+          "help": "Add as many as apply. Start typing to search." }
+      ]
+    },
+
+    {
+      "key": "goals",
+      "title": "What you want next",
+      "questions": [
+        { "key": "targetRoleIds", "label": "Target roles", "type": "role-multi",
+          "help": "Roles you'd like to be considered for." },
+        { "key": "targetIndustryIds", "label": "Target industries", "type": "industry-multi" },
+        { "key": "careerGoal", "label": "Primary career goal", "type": "select",
+          "options": [
+            "Get a higher salary",
+            "Change industries",
+            "Get promoted",
+            "Move to Germany",
+            "Work remotely",
+            "Find more stability",
+            "Other"
+          ]
+        }
+      ]
+    },
+
+    {
+      "key": "logistics",
+      "title": "Location & compensation",
+      "questions": [
+        { "key": "baseLocation", "label": "Where you're based", "type": "city-country" },
+        { "key": "acceptsRemote", "label": "I'm open to remote work", "type": "boolean" },
+        { "key": "willingToRelocate", "label": "Willing to relocate", "type": "boolean" },
+        { "key": "acceptedCities", "label": "Cities you'd relocate to", "type": "text",
+          "placeholder": "Munich, Hamburg, Frankfurt …",
+          "help": "Comma-separated. Leave blank if open to anywhere.",
+          "visibleIf": { "key": "willingToRelocate", "equals": true }
+        },
+        { "key": "salaryRange", "label": "Expected salary", "type": "salary-range" },
+        { "key": "candidateLanguages", "label": "Languages you speak", "type": "languages",
+          "help": "Add each language and your level (A1–C2 or Native)." },
+        { "key": "workAuth", "label": "Where you can legally work", "type": "checkboxes",
+          "options": ["EU", "UK", "US", "Other"]
+        }
+      ]
+    }
+  ]
+}

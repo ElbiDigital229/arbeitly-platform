@@ -1,0 +1,36 @@
+{
+  "_README": [
+    "How much each factor counts toward a candidate↔job match score (0–100).",
+    "Weights should sum to 100. The match service normalises if they don't.",
+    "Edit this file then restart the backend — no code changes needed.",
+    "",
+    "Tuning tips:",
+    "  - If matches feel too 'all-or-nothing', lower roleMatch and raise skillMatch.",
+    "  - If location is non-negotiable for your customer, raise locationMatch.",
+    "  - If candidates without listed languages always score 0, lower languageMatch."
+  ],
+
+  "weights": {
+    "roleMatch":         25,
+    "skillMatch":        30,
+    "industryMatch":     10,
+    "experienceMatch":   10,
+    "locationMatch":     10,
+    "salaryMatch":        5,
+    "languageMatch":      5,
+    "workAuthMatch":      5
+  },
+
+  "thresholds": {
+    "excellent": 85,
+    "strong":    70,
+    "possible":  50,
+    "weak":      30
+  },
+
+  "rules": {
+    "missingDataPenalty": 0.5,
+    "sameFamilyRolePartialCredit": 0.6,
+    "skillAliasMatchCredit": 0.9
+  }
+}
