@@ -448,14 +448,6 @@
               <span class="mdi mdi-drag-vertical text-base shrink-0 text-foreground/50 hover:text-foreground cursor-grab active:cursor-grabbing" />
               <p class="text-xs font-semibold text-muted-foreground">Skills</p>
             </div>
-            <div>
-              <label class="text-[10px] text-muted-foreground mb-1 block">Target role</label>
-              <RolePicker v-model="editorData.roleId" :roles="taxonomyRoles" />
-            </div>
-            <div>
-              <label class="text-[10px] text-muted-foreground mb-1 block">Tagged skills</label>
-              <TagPicker v-model="editorData.skillIds" :options="taxonomySkills" placeholder="Add skills..." />
-            </div>
             <textarea
               v-model="editorData.skills"
               placeholder="React, TypeScript, Node.js, SQL, Agile..."
@@ -723,12 +715,6 @@ import { useEmployeeStore } from '../../stores/employee';
 import StepIndicator from '../../components/StepIndicator.vue';
 import TemplateMiniPreview from '../../components/TemplateMiniPreview.vue';
 import SaveAsDialog from '../../components/SaveAsDialog.vue';
-import RolePicker from '../../components/RolePicker.vue';
-import TagPicker from '../../components/TagPicker.vue';
-import { useTaxonomy } from '../../composables/useTaxonomy';
-
-const { roles: taxonomyRoles, skills: taxonomySkills, load: loadTaxonomy } = useTaxonomy();
-loadTaxonomy();
 
 const props = defineProps<{ candidateId?: string }>();
 const employeeStore = useEmployeeStore();
