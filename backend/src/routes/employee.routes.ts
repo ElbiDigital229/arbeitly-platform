@@ -91,6 +91,7 @@ router.delete('/candidates/:id/faq/:faqId', employeeController.deleteFaqItem);
 
 // Queue
 router.get('/candidates/:id/queue', employeeController.getCandidateQueue);
+router.post('/queue/:queueItemId/apply', employeeController.markQueueApplied);
 
 router.get('/activity', async (req, res) => {
   const items = await activityService.getByUser(req.user!.id);

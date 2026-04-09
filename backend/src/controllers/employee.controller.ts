@@ -223,6 +223,12 @@ export const employeeController = {
     success(res, await jobDiscoveryService.getCandidateQueue(req.params.id));
   }),
 
+  markQueueApplied: asyncHandler(async (req, res) => {
+    const jobUrl = typeof req.body?.jobUrl === 'string' ? req.body.jobUrl : undefined;
+    const item = await jobDiscoveryService.markQueueApplied(req.params.queueItemId, req.user!.id, jobUrl);
+    success(res, item);
+  }),
+
   updateProfile: asyncHandler(async (req, res) => {
     const user = await employeeService.updateProfile(req.user!.id, req.body);
     success(res, { id: user.id, email: user.email });

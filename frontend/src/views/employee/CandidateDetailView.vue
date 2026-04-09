@@ -270,6 +270,73 @@
       </div>
     </template>
 
+    <!-- ═══════════ Pipeline Tab ═══════════ -->
+    <template v-if="activeTab === 'pipeline'">
+      <div class="flex items-center justify-between">
+        <p class="text-sm text-muted-foreground">
+          {{ pipeline.length }} job{{ pipeline.length !== 1 ? 's' : '' }} queued — tailored CV + cover letter auto-generated when added.
+        </p>
+        <button @click="loadPipeline" class="h-8 px-3 rounded-md text-xs font-medium border border-border text-foreground hover:bg-white/5 flex items-center gap-1.5">
+          <span class="mdi mdi-refresh text-sm" /> Refresh
+        </button>
+      </div>
+
+      <div v-if="pipelineLoading" class="text-sm text-muted-foreground">Loading…</div>
+
+      <div v-else-if="!pipeline.length" class="rounded-xl border border-border bg-card p-12 text-center">
+        <span class="mdi mdi-timer-sand-empty text-5xl text-muted-foreground/20" />
+        <p class="text-sm text-foreground mt-3">No jobs in pipeline</p>
+        <p class="text-xs text-muted-foreground mt-1">Add a job from Job Discovery to start building tailored applications.</p>
+      </div>
+
+      <div v-else class="space-y-2">
+        <div v-for="item in pipeline" :key="item.id" class="rounded-xl border border-border bg-card p-4">
+          <div class="flex items-start gap-4">
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 flex-wrap">
+                <p class="text-sm font-medium text-foreground">{{ item.job.title }}</p>
+                <span :class="['rounded-full px-2 py-0.5 text-[10px] font-semibold', pipelineStatusClasses(item.status)]">
+                  {{ pipelineStatusLabel(item.status) }}
+                </span>
+                <span v-if="item.relevanceScore != null" class="text-[10px] text-muted-foreground">
+                  Match {{ Math.round(item.relevanceScore) }}%
+                </span>
+              </div>
+              <p class="text-xs text-muted-foreground mt-0.5">
+                {{ item.job.company }}<span v-if="item.job.location"> · {{ item.job.location }}</span>
+              </p>
+              <div class="mt-2 flex flex-wrap gap-2">
+                <span v-if="item.generatedCv" class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] bg-secondary text-muted-foreground">
+                  <span class="mdi mdi-file-document-outline" /> Tailored CV
+                </span>
+                <span v-if="item.generatedCl" class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] bg-secondary text-muted-foreground">
+                  <span class="mdi mdi-email-outline" /> Tailored CL
+                </span>
+                <a v-if="item.application?.jobUrl || item.job.url" :href="item.application?.jobUrl || item.job.url" target="_blank" rel="noopener"
+                  class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] bg-secondary text-muted-foreground hover:text-foreground">
+                  <span class="mdi mdi-open-in-new" /> Job posting
+                </a>
+              </div>
+            </div>
+            <div class="shrink-0 flex flex-col items-end gap-1">
+              <button
+                v-if="item.status === 'READY' || item.status === 'CV_GENERATED'"
+                @click="markApplied(item)"
+                :disabled="applyingId === item.id"
+                class="flex items-center gap-1.5 h-8 px-3 rounded-full text-xs font-medium bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50"
+              >
+                <span class="mdi mdi-send" />
+                {{ applyingId === item.id ? 'Applying…' : 'Mark as applied' }}
+              </button>
+              <span v-else-if="item.status === 'APPLIED' && item.appliedAt" class="text-[10px] text-muted-foreground">
+                {{ new Date(item.appliedAt).toLocaleDateString() }}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
+
     <!-- ═══════════ Applications Tab ═══════════ -->
     <template v-if="activeTab === 'applications'">
       <!-- View toggle + Add -->
@@ -522,9 +589,62 @@ const tabs = [
   { id: 'cv', label: 'CV' },
   { id: 'cl', label: 'Cover Letter' },
   { id: 'faq', label: 'FAQ' },
+  { id: 'pipeline', label: 'Pipeline' },
   { id: 'applications', label: 'Applications' },
   { id: 'files', label: 'Files' },
 ];
+
+const pipeline = ref<any[]>([]);
+const pipelineLoading = ref(false);
+const applyingId = ref<string | null>(null);
+
+async function loadPipeline() {
+  pipelineLoading.value = true;
+  try {
+    const { data } = await api.get(`/employee/candidates/${candidateId}/queue`, { headers: headers.value });
+    pipeline.value = data.data || [];
+  } catch (err) {
+    console.error('Failed to load pipeline:', err);
+  } finally {
+    pipelineLoading.value = false;
+  }
+}
+
+async function markApplied(item: any) {
+  const jobUrl = window.prompt('Job posting URL (optional, leave blank to skip):', item.application?.jobUrl || item.job?.url || '') || undefined;
+  applyingId.value = item.id;
+  try {
+    await api.post(`/employee/queue/${item.id}/apply`, jobUrl ? { jobUrl } : {}, { headers: headers.value });
+    await loadPipeline();
+    // Also refresh applications list since the linked app is now APPLIED
+    const aRes = await api.get(`/employee/candidates/${candidateId}/applications`, { headers: headers.value });
+    applications.value = aRes.data.data || [];
+  } catch (err: any) {
+    alert(err.response?.data?.error || 'Failed to mark applied');
+  } finally {
+    applyingId.value = null;
+  }
+}
+
+function pipelineStatusLabel(s: string) {
+  const map: Record<string, string> = {
+    PENDING: 'Tailoring…',
+    NO_BASE_CV: 'Needs base CV',
+    CV_FAILED: 'Tailoring failed',
+    CV_GENERATED: 'CV ready',
+    READY: 'Ready to apply',
+    APPLIED: 'Applied',
+  };
+  return map[s] || s;
+}
+
+function pipelineStatusClasses(s: string) {
+  if (s === 'APPLIED') return 'bg-green-500/15 text-green-500 border border-green-500/25';
+  if (s === 'READY') return 'bg-primary/15 text-primary border border-primary/25';
+  if (s === 'CV_GENERATED') return 'bg-blue-500/15 text-blue-400 border border-blue-500/25';
+  if (s === 'NO_BASE_CV' || s === 'CV_FAILED') return 'bg-amber-500/15 text-amber-400 border border-amber-500/25';
+  return 'bg-secondary text-muted-foreground border border-border';
+}
 
 const newApp = ref({ jobTitle: '', companyName: '', jobUrl: '', status: 'TO_APPLY', salary: '', notes: '' });
 
@@ -615,6 +735,9 @@ watch(activeTab, async (tab) => {
         selectedClId.value = base.id;
       }
     } catch { /* no cls */ }
+  }
+  if (tab === 'pipeline') {
+    await loadPipeline();
   }
   if (tab === 'files' && files.value.length === 0) {
     try {

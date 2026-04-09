@@ -1,8 +1,14 @@
 import { applicationService } from '../services/application.service.js';
+import { jobDiscoveryService } from '../services/job-discovery.service.js';
 import { success } from '../utils/response.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 
 export const applicationController = {
+  getPipeline: asyncHandler(async (req, res) => {
+    const items = await jobDiscoveryService.getPipelineForCandidate(req.user!.id);
+    success(res, items);
+  }),
+
   createApplication: asyncHandler(async (req, res) => {
     const application = await applicationService.createApplication(req.user!.id, req.body);
     success(res, application, 201);

@@ -318,17 +318,10 @@ Return STRICT JSON only: {"score": <number 0-100>, "reasoning": "<2-4 sentence e
       console.error('[JobDiscovery] CL generation failed (non-fatal):', err);
     }
 
-    // 3. Link both artifacts to the queue item + TO_APPLY application
-    await prisma.candidateJobQueue.update({
-      where: { id: queueItemId },
-      data: {
-        status: generatedClId ? 'READY' : 'CV_GENERATED',
-        generatedCvId: generatedCv.id,
-        generatedClId,
-      },
-    });
-
-    await prisma.application.create({
+    // 3. Create the TO_APPLY application, then link both artifacts + the
+    //    application back to the queue item in a single update so the
+    //    candidate portal and employee portal see a consistent pipeline row.
+    const application = await prisma.application.create({
       data: {
         userId: candidateId,
         jobTitle: job.title,
@@ -339,6 +332,16 @@ Return STRICT JSON only: {"score": <number 0-100>, "reasoning": "<2-4 sentence e
         source: 'discovery',
         cvUsed: generatedCv.id,
         clUsed: generatedClId ?? undefined,
+      },
+    });
+
+    await prisma.candidateJobQueue.update({
+      where: { id: queueItemId },
+      data: {
+        status: generatedClId ? 'READY' : 'CV_GENERATED',
+        generatedCvId: generatedCv.id,
+        generatedClId,
+        applicationId: application.id,
       },
     });
   },
@@ -380,8 +383,74 @@ Return STRICT JSON only: {"score": <number 0-100>, "reasoning": "<2-4 sentence e
         job: true,
         generatedCv: { select: { id: true, title: true } },
         generatedCl: { select: { id: true, title: true } },
+        application: { select: { id: true, status: true, appliedAt: true, jobUrl: true } },
       },
       orderBy: { createdAt: 'desc' },
     });
+  },
+
+  /**
+   * Candidate-side pipeline: read-only view of what the candidate's assigned
+   * employee has queued and prepared on their behalf. Mirrors getCandidateQueue
+   * but scoped to the authenticated candidate themselves.
+   */
+  async getPipelineForCandidate(candidateId: string) {
+    return prisma.candidateJobQueue.findMany({
+      where: { candidateId },
+      include: {
+        job: {
+          select: {
+            id: true, title: true, company: true, location: true,
+            salary: true, url: true, description: true,
+          },
+        },
+        generatedCv: { select: { id: true, title: true } },
+        // Include CL content directly — candidates don't have a standalone
+        // cover-letter read endpoint, so the pipeline response is the
+        // simplest way to surface the tailored text to them.
+        generatedCl: { select: { id: true, title: true, content: true } },
+        application: { select: { id: true, status: true, appliedAt: true, jobUrl: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  },
+
+  /**
+   * Employee-side: transition a READY queue item to APPLIED. Updates the
+   * linked application status + appliedAt atomically. Verifies the caller
+   * is the assigned employee for the candidate on this queue item.
+   */
+  async markQueueApplied(queueItemId: string, employeeId: string, jobUrl?: string) {
+    const queueItem = await prisma.candidateJobQueue.findUnique({
+      where: { id: queueItemId },
+      include: { application: true },
+    });
+    if (!queueItem) throw HttpError.notFound('Queue item not found');
+    if (queueItem.employeeId !== employeeId) {
+      throw HttpError.forbidden('You do not own this queue item');
+    }
+    if (!queueItem.applicationId) {
+      throw HttpError.badRequest('Queue item has no linked application yet — tailoring may still be in progress');
+    }
+    if (queueItem.status !== 'READY' && queueItem.status !== 'CV_GENERATED') {
+      throw HttpError.badRequest(`Cannot mark applied from status ${queueItem.status}`);
+    }
+
+    const now = new Date();
+    const [updatedQueue] = await prisma.$transaction([
+      prisma.candidateJobQueue.update({
+        where: { id: queueItemId },
+        data: { status: 'APPLIED', appliedAt: now },
+      }),
+      prisma.application.update({
+        where: { id: queueItem.applicationId },
+        data: {
+          status: 'APPLIED',
+          appliedAt: now,
+          ...(jobUrl ? { jobUrl } : {}),
+        },
+      }),
+    ]);
+    return updatedQueue;
   },
 };

@@ -72,6 +72,13 @@ const sections = computed<NavSection[]>(() => [
     label: t('nav.portal'),
     items: [
       { to: '/candidate/applications', icon: 'mdi-view-column-outline', label: t('nav.applications') },
+      {
+        to: '/candidate/pipeline',
+        icon: 'mdi-timer-sand',
+        label: 'Pipeline',
+        disabled: !auth.user?.plan,
+        badge: auth.user?.plan ? undefined : 'PRO',
+      },
       { to: '/candidate/cv', icon: 'mdi-file-document-outline', label: t('nav.cv') },
       { to: '/candidate/files', icon: 'mdi-folder-outline', label: t('nav.files') },
       {
@@ -93,6 +100,7 @@ const pageTitles = computed(
   () =>
     ({
       '/candidate/applications': t('nav.applications'),
+      '/candidate/pipeline': 'Pipeline',
       '/candidate/cv': t('nav.cv'),
       '/candidate/files': t('nav.files'),
       '/candidate/faq': t('nav.faq'),

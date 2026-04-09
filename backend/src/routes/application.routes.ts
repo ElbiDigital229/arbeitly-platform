@@ -8,6 +8,7 @@ const router = Router();
 
 router.use(authenticate);
 
+router.get('/pipeline', applicationController.getPipeline);
 router.post('/bulk', validate(BulkCreateApplicationDto), applicationController.bulkCreateApplications);
 router.post('/', validate(CreateApplicationDto), applicationController.createApplication);
 router.get('/', applicationController.getApplications);
