@@ -152,39 +152,85 @@
             <span>{{ q.placeholder || 'Yes' }}</span>
           </label>
 
-          <!-- role-picker (single role from taxonomy) -->
-          <select v-else-if="q.type === 'role-picker'" v-model="answers[q.key]" class="input-field">
-            <option value="">Select a role…</option>
-            <optgroup v-for="(roles, family) in rolesByFamily" :key="family" :label="prettyFamily(family)">
-              <option v-for="r in roles" :key="r.id" :value="r.id">{{ r.name }}</option>
-            </optgroup>
-          </select>
-
-          <!-- role-multi -->
-          <div v-else-if="q.type === 'role-multi'" class="flex flex-wrap gap-2">
-            <button
-              v-for="r in taxonomy.roles"
-              :key="r.id"
-              type="button"
-              @click="toggleId(q.key, r.id)"
-              class="text-xs px-3 py-1.5 rounded-full border transition-colors"
-              :class="
-                (answers[q.key] || []).includes(r.id)
-                  ? 'bg-primary text-primary-foreground border-primary'
-                  : 'bg-card border-border text-muted-foreground hover:border-primary/40'
-              "
+          <!-- phone-intl — country code dropdown + phone number -->
+          <div v-else-if="q.type === 'phone-intl'" class="flex gap-2">
+            <select
+              v-model="getPhone(q.key).countryCode"
+              class="input-field shrink-0"
+              style="width: 11rem"
             >
-              {{ r.name }}
-            </button>
+              <option v-for="c in COUNTRIES" :key="c.value" :value="c.value">
+                {{ c.dial }} {{ c.label }}
+              </option>
+            </select>
+            <input
+              v-model="getPhone(q.key).number"
+              type="tel"
+              class="input-field"
+              style="flex: 1 1 0%; min-width: 0"
+              :placeholder="q.placeholder || '151 234 5678'"
+            />
           </div>
 
+          <!-- years-select — single dropdown -->
+          <select v-else-if="q.type === 'years-select'" v-model="answers[q.key]" class="input-field">
+            <option value="">Select…</option>
+            <option v-for="opt in normalizedOptions(q)" :key="opt.value" :value="opt.value">
+              {{ opt.label }}
+            </option>
+          </select>
+
+          <!-- role-picker (single role from taxonomy) -->
+          <template v-else-if="q.type === 'role-picker'">
+            <select v-model="answers[q.key]" class="input-field">
+              <option value="">Select a role…</option>
+              <optgroup v-for="(roles, family) in rolesByFamily" :key="family" :label="prettyFamily(family)">
+                <option v-for="r in roles" :key="r.id" :value="r.id">{{ r.name }}</option>
+              </optgroup>
+            </select>
+            <input
+              v-if="q.allowOther"
+              v-model="answers[`${q.key}Other`]"
+              type="text"
+              class="input-field mt-2"
+              placeholder="Or type your role if not listed…"
+            />
+          </template>
+
+          <!-- role-multi -->
+          <template v-else-if="q.type === 'role-multi'">
+            <div class="flex flex-wrap gap-2">
+              <button
+                v-for="r in taxonomy.roles"
+                :key="r.id"
+                type="button"
+                @click="toggleId(q.key, r.id)"
+                class="text-xs px-3 py-1.5 rounded-full border transition-colors"
+                :class="
+                  (answers[q.key] || []).includes(r.id)
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'bg-card border-border text-muted-foreground hover:border-primary/40'
+                "
+              >
+                {{ r.name }}
+              </button>
+            </div>
+            <input
+              v-if="q.allowOther"
+              v-model="answers[`${q.key}Other`]"
+              type="text"
+              class="input-field mt-2"
+              placeholder="Other roles, comma-separated…"
+            />
+          </template>
+
           <!-- skill-multi -->
-          <div v-else-if="q.type === 'skill-multi'">
+          <template v-else-if="q.type === 'skill-multi'">
             <input
               v-model="skillSearch"
               type="text"
               class="input-field mb-2"
-              placeholder="Search skills…"
+              placeholder="Search skills… (finance, marketing, tech, languages, anything)"
             />
             <div class="flex flex-wrap gap-2 max-h-60 overflow-y-auto">
               <button
@@ -202,25 +248,41 @@
                 {{ s.name }}
               </button>
             </div>
-          </div>
+            <input
+              v-if="q.allowOther"
+              v-model="answers[`${q.key}Other`]"
+              type="text"
+              class="input-field mt-2"
+              placeholder="Other skills not in the list, comma-separated…"
+            />
+          </template>
 
           <!-- industry-multi -->
-          <div v-else-if="q.type === 'industry-multi'" class="flex flex-wrap gap-2">
-            <button
-              v-for="ind in taxonomy.industries"
-              :key="ind.id"
-              type="button"
-              @click="toggleId(q.key, ind.id)"
-              class="text-xs px-3 py-1.5 rounded-full border transition-colors"
-              :class="
-                (answers[q.key] || []).includes(ind.id)
-                  ? 'bg-primary text-primary-foreground border-primary'
-                  : 'bg-card border-border text-muted-foreground hover:border-primary/40'
-              "
-            >
-              {{ ind.name }}
-            </button>
-          </div>
+          <template v-else-if="q.type === 'industry-multi'">
+            <div class="flex flex-wrap gap-2">
+              <button
+                v-for="ind in taxonomy.industries"
+                :key="ind.id"
+                type="button"
+                @click="toggleId(q.key, ind.id)"
+                class="text-xs px-3 py-1.5 rounded-full border transition-colors"
+                :class="
+                  (answers[q.key] || []).includes(ind.id)
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'bg-card border-border text-muted-foreground hover:border-primary/40'
+                "
+              >
+                {{ ind.name }}
+              </button>
+            </div>
+            <input
+              v-if="q.allowOther"
+              v-model="answers[`${q.key}Other`]"
+              type="text"
+              class="input-field mt-2"
+              placeholder="Other industries, comma-separated…"
+            />
+          </template>
 
           <!-- salary-range -->
           <div v-else-if="q.type === 'salary-range'" class="grid grid-cols-3 gap-3">
@@ -240,6 +302,8 @@
               <option value="EUR">EUR €</option>
               <option value="USD">USD $</option>
               <option value="GBP">GBP £</option>
+              <option value="CHF">CHF</option>
+              <option value="AED">AED</option>
             </select>
           </div>
 
@@ -253,17 +317,18 @@
               <input
                 v-model="lang.language"
                 type="text"
-                class="input-field flex-1"
-                placeholder="Language"
+                class="input-field"
+                style="flex: 3 1 0%; min-width: 0"
+                placeholder="Language (e.g. German)"
               />
-              <select v-model="lang.level" class="input-field w-32">
-                <option value="">Level…</option>
+              <select v-model="lang.level" class="input-field shrink-0" style="width: 7rem">
+                <option value="">Level</option>
                 <option v-for="l in ['A1','A2','B1','B2','C1','C2','Native']" :key="l" :value="l">{{ l }}</option>
               </select>
               <button
                 type="button"
                 @click="removeLang(q.key, idx)"
-                class="text-muted-foreground hover:text-destructive"
+                class="text-muted-foreground hover:text-destructive shrink-0"
               >
                 <span class="mdi mdi-close" />
               </button>
@@ -277,7 +342,21 @@
             </button>
           </div>
 
-          <!-- city-country -->
+          <!-- country-city (country dropdown + city text) -->
+          <div v-else-if="q.type === 'country-city'" class="grid grid-cols-2 gap-3">
+            <select v-model="getLoc(q.key).country" class="input-field">
+              <option value="">Country…</option>
+              <option v-for="c in COUNTRIES" :key="c.value" :value="c.value">{{ c.label }}</option>
+            </select>
+            <input
+              v-model="getLoc(q.key).city"
+              type="text"
+              class="input-field"
+              placeholder="City"
+            />
+          </div>
+
+          <!-- city-country (legacy: text + text) -->
           <div v-else-if="q.type === 'city-country'" class="grid grid-cols-2 gap-3">
             <input
               v-model="getLoc(q.key).city"
@@ -290,6 +369,35 @@
               type="text"
               class="input-field"
               placeholder="Country"
+            />
+          </div>
+
+          <!-- tags — chip input, press Enter to add -->
+          <div v-else-if="q.type === 'tags'">
+            <div class="flex flex-wrap gap-2 mb-2" v-if="(answers[q.key] || []).length">
+              <span
+                v-for="(tag, idx) in answers[q.key]"
+                :key="idx"
+                class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs bg-primary/15 text-primary border border-primary/30"
+              >
+                {{ tag }}
+                <button
+                  type="button"
+                  @click="removeTag(q.key, idx)"
+                  class="hover:text-destructive"
+                >
+                  <span class="mdi mdi-close text-xs" />
+                </button>
+              </span>
+            </div>
+            <input
+              type="text"
+              class="input-field"
+              :placeholder="q.placeholder || 'Type and press Enter to add'"
+              :value="tagDraft[q.key] || ''"
+              @input="tagDraft[q.key] = ($event.target as HTMLInputElement).value"
+              @keydown.enter.prevent="addTag(q.key)"
+              @blur="addTag(q.key)"
             />
           </div>
 
@@ -344,8 +452,81 @@ interface Question {
   help?: string;
   placeholder?: string;
   options?: any;
-  visibleIf?: { key: string; equals: any };
+  allowOther?: boolean;
+  visibleIf?: { key: string; equals?: any; notEquals?: any; in?: any[] };
 }
+
+// ── Static lists used by phone-intl and country-city ──────────────────
+const COUNTRIES: { value: string; label: string; dial: string }[] = [
+  { value: 'DE', label: 'Germany', dial: '+49' },
+  { value: 'AT', label: 'Austria', dial: '+43' },
+  { value: 'CH', label: 'Switzerland', dial: '+41' },
+  { value: 'FR', label: 'France', dial: '+33' },
+  { value: 'NL', label: 'Netherlands', dial: '+31' },
+  { value: 'BE', label: 'Belgium', dial: '+32' },
+  { value: 'LU', label: 'Luxembourg', dial: '+352' },
+  { value: 'IT', label: 'Italy', dial: '+39' },
+  { value: 'ES', label: 'Spain', dial: '+34' },
+  { value: 'PT', label: 'Portugal', dial: '+351' },
+  { value: 'IE', label: 'Ireland', dial: '+353' },
+  { value: 'GB', label: 'United Kingdom', dial: '+44' },
+  { value: 'DK', label: 'Denmark', dial: '+45' },
+  { value: 'SE', label: 'Sweden', dial: '+46' },
+  { value: 'NO', label: 'Norway', dial: '+47' },
+  { value: 'FI', label: 'Finland', dial: '+358' },
+  { value: 'PL', label: 'Poland', dial: '+48' },
+  { value: 'CZ', label: 'Czechia', dial: '+420' },
+  { value: 'SK', label: 'Slovakia', dial: '+421' },
+  { value: 'HU', label: 'Hungary', dial: '+36' },
+  { value: 'RO', label: 'Romania', dial: '+40' },
+  { value: 'BG', label: 'Bulgaria', dial: '+359' },
+  { value: 'GR', label: 'Greece', dial: '+30' },
+  { value: 'HR', label: 'Croatia', dial: '+385' },
+  { value: 'SI', label: 'Slovenia', dial: '+386' },
+  { value: 'EE', label: 'Estonia', dial: '+372' },
+  { value: 'LV', label: 'Latvia', dial: '+371' },
+  { value: 'LT', label: 'Lithuania', dial: '+370' },
+  { value: 'US', label: 'United States', dial: '+1' },
+  { value: 'CA', label: 'Canada', dial: '+1' },
+  { value: 'MX', label: 'Mexico', dial: '+52' },
+  { value: 'BR', label: 'Brazil', dial: '+55' },
+  { value: 'AR', label: 'Argentina', dial: '+54' },
+  { value: 'CL', label: 'Chile', dial: '+56' },
+  { value: 'CO', label: 'Colombia', dial: '+57' },
+  { value: 'AU', label: 'Australia', dial: '+61' },
+  { value: 'NZ', label: 'New Zealand', dial: '+64' },
+  { value: 'JP', label: 'Japan', dial: '+81' },
+  { value: 'KR', label: 'South Korea', dial: '+82' },
+  { value: 'CN', label: 'China', dial: '+86' },
+  { value: 'HK', label: 'Hong Kong', dial: '+852' },
+  { value: 'SG', label: 'Singapore', dial: '+65' },
+  { value: 'MY', label: 'Malaysia', dial: '+60' },
+  { value: 'TH', label: 'Thailand', dial: '+66' },
+  { value: 'PH', label: 'Philippines', dial: '+63' },
+  { value: 'ID', label: 'Indonesia', dial: '+62' },
+  { value: 'VN', label: 'Vietnam', dial: '+84' },
+  { value: 'IN', label: 'India', dial: '+91' },
+  { value: 'PK', label: 'Pakistan', dial: '+92' },
+  { value: 'BD', label: 'Bangladesh', dial: '+880' },
+  { value: 'AE', label: 'United Arab Emirates', dial: '+971' },
+  { value: 'SA', label: 'Saudi Arabia', dial: '+966' },
+  { value: 'QA', label: 'Qatar', dial: '+974' },
+  { value: 'KW', label: 'Kuwait', dial: '+965' },
+  { value: 'BH', label: 'Bahrain', dial: '+973' },
+  { value: 'OM', label: 'Oman', dial: '+968' },
+  { value: 'IL', label: 'Israel', dial: '+972' },
+  { value: 'TR', label: 'Turkey', dial: '+90' },
+  { value: 'EG', label: 'Egypt', dial: '+20' },
+  { value: 'MA', label: 'Morocco', dial: '+212' },
+  { value: 'TN', label: 'Tunisia', dial: '+216' },
+  { value: 'DZ', label: 'Algeria', dial: '+213' },
+  { value: 'NG', label: 'Nigeria', dial: '+234' },
+  { value: 'KE', label: 'Kenya', dial: '+254' },
+  { value: 'ZA', label: 'South Africa', dial: '+27' },
+  { value: 'UA', label: 'Ukraine', dial: '+380' },
+  { value: 'RU', label: 'Russia', dial: '+7' },
+  { value: 'OTHER', label: 'Other', dial: '+' },
+];
 interface Step { key: string; title: string; subtitle?: string; questions: Question[] }
 interface Config { steps: Step[] }
 interface TaxonomyItem { id: string; name: string; family?: string }
@@ -372,7 +553,11 @@ const currentStep = computed(() => config.value!.steps[step.value]);
 const visibleQuestions = computed(() => {
   return currentStep.value.questions.filter((q) => {
     if (!q.visibleIf) return true;
-    return answers[q.visibleIf.key] === q.visibleIf.equals;
+    const cur = answers[q.visibleIf.key];
+    if ('equals' in q.visibleIf && q.visibleIf.equals !== undefined) return cur === q.visibleIf.equals;
+    if ('notEquals' in q.visibleIf && q.visibleIf.notEquals !== undefined) return cur !== q.visibleIf.notEquals;
+    if (Array.isArray(q.visibleIf.in)) return q.visibleIf.in.includes(cur);
+    return true;
   });
 });
 
@@ -387,9 +572,10 @@ const rolesByFamily = computed(() => {
 });
 
 const filteredSkills = computed(() => {
+  const sorted = [...taxonomy.skills].sort((a, b) => a.name.localeCompare(b.name));
   const q = skillSearch.value.trim().toLowerCase();
-  if (!q) return taxonomy.skills.slice(0, 60);
-  return taxonomy.skills.filter((s) => s.name.toLowerCase().includes(q)).slice(0, 60);
+  if (!q) return sorted.slice(0, 80);
+  return sorted.filter((s) => s.name.toLowerCase().includes(q)).slice(0, 80);
 });
 
 function prettyFamily(f: string) {
@@ -437,6 +623,24 @@ function getLoc(key: string) {
   if (!answers[key]) answers[key] = { city: '', country: '' };
   return answers[key];
 }
+function getPhone(key: string) {
+  if (!answers[key] || typeof answers[key] !== 'object') {
+    answers[key] = { countryCode: 'DE', number: '' };
+  }
+  return answers[key];
+}
+
+const tagDraft = reactive<Record<string, string>>({});
+function addTag(key: string) {
+  const v = (tagDraft[key] || '').trim();
+  if (!v) return;
+  if (!Array.isArray(answers[key])) answers[key] = [];
+  if (!answers[key].includes(v)) answers[key].push(v);
+  tagDraft[key] = '';
+}
+function removeTag(key: string, idx: number) {
+  if (Array.isArray(answers[key])) answers[key].splice(idx, 1);
+}
 
 function initAnswers() {
   if (!config.value) return;
@@ -460,7 +664,17 @@ function initAnswers() {
           answers[q.key] = [];
           break;
         case 'city-country':
+        case 'country-city':
           answers[q.key] = { city: '', country: '' };
+          break;
+        case 'phone-intl':
+          answers[q.key] = { countryCode: 'DE', number: '' };
+          break;
+        case 'tags':
+          answers[q.key] = [];
+          break;
+        case 'years-select':
+          answers[q.key] = '';
           break;
         case 'number':
           answers[q.key] = null;
@@ -468,14 +682,11 @@ function initAnswers() {
         default:
           answers[q.key] = '';
       }
+      // `allowOther` companion field lives in onboardingData as `<key>Other`
+      if (q.allowOther && answers[`${q.key}Other`] === undefined) {
+        answers[`${q.key}Other`] = '';
+      }
     }
-  }
-  // Pre-fill from existing profile if available
-  const p = auth.user?.profile as any;
-  if (p) {
-    if (p.firstName && !answers.firstName) answers.firstName = p.firstName;
-    if (p.lastName && !answers.lastName) answers.lastName = p.lastName;
-    if (p.phone && !answers.phone) answers.phone = p.phone;
   }
 }
 
@@ -484,11 +695,12 @@ function validateStep(): boolean {
   for (const q of visibleQuestions.value) {
     if (!q.required) continue;
     const v = answers[q.key];
-    const empty =
-      v === undefined ||
-      v === null ||
-      v === '' ||
-      (Array.isArray(v) && v.length === 0);
+    let empty = v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0);
+    if (q.type === 'country-city' || q.type === 'city-country') {
+      empty = !v || !v.country || !v.city;
+    } else if (q.type === 'phone-intl') {
+      empty = !v || !v.number;
+    }
     if (empty) missing.push(q.label);
   }
   errors.value = missing;

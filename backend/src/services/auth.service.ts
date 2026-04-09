@@ -16,10 +16,14 @@ export const authService = {
     const hashed = await hashPassword(dto.password);
     const user = await userRepository.create({ email: dto.email, password: hashed });
 
-    // Create stub profile
+    // Split full name into first/last (last name = rest, first name = first token)
+    const nameParts = dto.fullName.trim().split(/\s+/);
+    const firstName = nameParts[0] || '';
+    const lastName = nameParts.slice(1).join(' ') || '';
+
     await profileRepository.create({
-      firstName: '',
-      lastName: '',
+      firstName,
+      lastName,
       user: { connect: { id: user.id } },
     });
 

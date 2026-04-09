@@ -13,7 +13,8 @@ export interface OnboardingQuestion {
   help?: string;
   placeholder?: string;
   options?: any;
-  visibleIf?: { key: string; equals: any };
+  allowOther?: boolean;
+  visibleIf?: { key: string; equals?: any; notEquals?: any; in?: any[] };
 }
 
 export interface OnboardingStep {

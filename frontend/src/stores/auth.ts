@@ -56,8 +56,8 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem('arbeitly_token');
   }
 
-  async function register(email: string, password: string, confirmPassword: string) {
-    const { data } = await api.post('/auth/register', { email, password, confirmPassword });
+  async function register(fullName: string, email: string, password: string, confirmPassword: string) {
+    const { data } = await api.post('/auth/register', { fullName, email, password, confirmPassword });
     setToken(data.data.token);
     user.value = data.data.user;
     await fetchMe();

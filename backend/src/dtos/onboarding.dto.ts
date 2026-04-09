@@ -14,11 +14,17 @@ export const OnboardingDto = z
     // Basics
     firstName: z.string().min(1, 'First name is required').optional(),
     lastName: z.string().min(1, 'Last name is required').optional(),
-    phone: z.string().optional(),
+    phone: z
+      .union([
+        z.string(),
+        z.object({ countryCode: z.string().optional(), number: z.string().optional() }),
+      ])
+      .optional(),
     preferredLanguage: z.enum(['de', 'en']).optional(),
 
     // Current situation
     currentRoleId: z.string().optional().nullable(),
+    yearsExperience: z.string().optional(),
     yearsExperienceMin: z.number().int().optional().nullable(),
     yearsExperienceMax: z.number().int().optional().nullable(),
     skillIds: z.array(z.string()).optional(),
@@ -34,6 +40,8 @@ export const OnboardingDto = z
       .optional(),
     acceptsRemote: z.boolean().optional(),
     willingToRelocate: z.boolean().optional(),
+    relocationScope: z.enum(['no', 'within_country', 'abroad', 'anywhere']).optional(),
+    workMode: z.enum(['remote', 'hybrid', 'onsite', 'any']).optional(),
     acceptedCities: z.union([z.string(), z.array(z.string())]).optional(),
     salaryRange: z
       .object({

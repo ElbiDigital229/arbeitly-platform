@@ -147,7 +147,7 @@ async function handleRegister() {
   }
   loading.value = true;
   try {
-    await auth.register(email.value, password.value, confirmPassword.value);
+    await auth.register(fullName.value, email.value, password.value, confirmPassword.value);
     if (isFree.value) {
       // Free tier goes straight to the dashboard. No onboarding gate —
       // they upload a CV and start tracking jobs manually. Onboarding

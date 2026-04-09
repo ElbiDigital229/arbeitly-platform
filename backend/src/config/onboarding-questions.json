@@ -25,27 +25,29 @@
     "              radio         radio buttons — needs `options`",
     "              checkboxes    multi-select boxes — needs `options`",
     "              boolean       single checkbox",
-    "              role-picker   pick one role from the JobRole taxonomy",
-    "              role-multi    pick many roles from JobRole",
-    "              skill-multi   pick many skills from Skill",
-    "              industry-multi  pick many industries from Industry",
+    "              phone-intl    country code dropdown + phone number",
+    "              years-select  single dropdown for years of experience",
+    "              role-picker   pick one role from the JobRole taxonomy (supports allowOther)",
+    "              role-multi    pick many roles from JobRole (supports allowOther)",
+    "              skill-multi   pick many skills from Skill (supports allowOther)",
+    "              industry-multi  pick many industries from Industry (supports allowOther)",
     "              salary-range  min/max/currency triple input",
     "              languages     list of {language, level} entries",
-    "              city-country  paired city + country inputs",
+    "              country-city  country dropdown + city text",
+    "              tags          chip input — press Enter to add",
     "  options[] for select/radio/checkboxes — array of strings OR {value,label} objects",
-    "  visibleIf optional condition: { key: 'otherQuestionKey', equals: 'value' } — hides until matched",
+    "  allowOther  for role-picker/role-multi/skill-multi/industry-multi — shows a text input so the candidate can type something the taxonomy doesn't cover; answer saved to `<key>Other` in onboardingData",
+    "  visibleIf optional condition: { key: 'otherQuestionKey', equals: 'value' } or { key: ..., notEquals: ... } or { key: ..., in: [...] }",
     "  placeholder optional placeholder text"
   ],
 
   "steps": [
     {
-      "key": "basics",
-      "title": "Basics",
-      "subtitle": "Tell us who you are.",
+      "key": "contact",
+      "title": "Contact & preferences",
+      "subtitle": "How should we reach you?",
       "questions": [
-        { "key": "firstName", "label": "First name", "type": "text", "required": true },
-        { "key": "lastName", "label": "Last name", "type": "text", "required": true },
-        { "key": "phone", "label": "Phone", "type": "text", "placeholder": "+49 …" },
+        { "key": "phone", "label": "Phone", "type": "phone-intl", "help": "Pick your country dialing code." },
         { "key": "preferredLanguage", "label": "Preferred language", "type": "select", "required": true,
           "options": [
             { "value": "en", "label": "English" },
@@ -60,11 +62,35 @@
       "title": "Where you are now",
       "questions": [
         { "key": "currentRoleId", "label": "Your current role", "type": "role-picker", "required": true,
-          "help": "Pick the closest match from the dropdown — you can refine later." },
-        { "key": "yearsExperienceMin", "label": "Years of experience (min)", "type": "number" },
-        { "key": "yearsExperienceMax", "label": "Years of experience (max)", "type": "number" },
+          "allowOther": true,
+          "help": "Pick the closest match — if nothing fits, type your own." },
+        { "key": "yearsExperience", "label": "Years of experience", "type": "years-select", "required": true,
+          "options": [
+            { "value": "0-1", "label": "Less than 1 year" },
+            { "value": "1-3", "label": "1 – 3 years" },
+            { "value": "3-5", "label": "3 – 5 years" },
+            { "value": "5-10", "label": "5 – 10 years" },
+            { "value": "10-15", "label": "10 – 15 years" },
+            { "value": "15-99", "label": "15+ years" }
+          ]
+        },
         { "key": "skillIds", "label": "Your skills", "type": "skill-multi", "required": true,
-          "help": "Add as many as apply. Start typing to search." }
+          "allowOther": true,
+          "help": "Search and pick as many as apply. Anything missing? Add it as free text." },
+        { "key": "switchCurrentRole", "label": "Are you willing to switch from your current role?", "type": "radio",
+          "options": [
+            { "value": "yes", "label": "Yes, open to a new role" },
+            { "value": "maybe", "label": "Maybe, depending on the opportunity" },
+            { "value": "no", "label": "No, staying in this role" }
+          ]
+        },
+        { "key": "switchCareerPath", "label": "Willing to switch career path to similar roles based on your certifications or degree?", "type": "radio",
+          "options": [
+            { "value": "yes", "label": "Yes" },
+            { "value": "maybe", "label": "Maybe" },
+            { "value": "no", "label": "No" }
+          ]
+        }
       ]
     },
 
@@ -72,15 +98,21 @@
       "key": "goals",
       "title": "What you want next",
       "questions": [
-        { "key": "targetRoleIds", "label": "Target roles", "type": "role-multi",
-          "help": "Roles you'd like to be considered for." },
-        { "key": "targetIndustryIds", "label": "Target industries", "type": "industry-multi" },
-        { "key": "careerGoal", "label": "Primary career goal", "type": "select",
+        { "key": "targetIndustryIds", "label": "What industries are you looking for?", "type": "industry-multi",
+          "allowOther": true,
+          "help": "Pick the industries you want to work in." },
+        { "key": "targetRoleIds", "label": "What kind of positions are you looking for? (up to 3)", "type": "role-multi",
+          "allowOther": true,
+          "help": "Pick up to three roles you'd like to be considered for." },
+        { "key": "skillsToHighlight", "label": "Any technical skills you'd like to highlight (even if not prominent on your CV)?", "type": "textarea",
+          "placeholder": "e.g. Kubernetes, French (C1), stakeholder management…",
+          "help": "Optional. Things you're good at but your CV may not emphasise." },
+        { "key": "careerGoal", "label": "Your primary career goal", "type": "select",
           "options": [
             "Get a higher salary",
             "Change industries",
             "Get promoted",
-            "Move to Germany",
+            "Move to a new country",
             "Work remotely",
             "Find more stability",
             "Other"
@@ -90,23 +122,76 @@
     },
 
     {
-      "key": "logistics",
-      "title": "Location & compensation",
+      "key": "location",
+      "title": "Location & mobility",
       "questions": [
-        { "key": "baseLocation", "label": "Where you're based", "type": "city-country" },
-        { "key": "acceptsRemote", "label": "I'm open to remote work", "type": "boolean" },
-        { "key": "willingToRelocate", "label": "Willing to relocate", "type": "boolean" },
-        { "key": "acceptedCities", "label": "Cities you'd relocate to", "type": "text",
-          "placeholder": "Munich, Hamburg, Frankfurt …",
-          "help": "Comma-separated. Leave blank if open to anywhere.",
-          "visibleIf": { "key": "willingToRelocate", "equals": true }
+        { "key": "baseLocation", "label": "Where are you based?", "type": "country-city", "required": true },
+        { "key": "workMode", "label": "Work mode preference", "type": "radio", "required": true,
+          "options": [
+            { "value": "remote", "label": "Remote only" },
+            { "value": "hybrid", "label": "Hybrid" },
+            { "value": "onsite", "label": "In-house / on-site" },
+            { "value": "any", "label": "Open to any" }
+          ]
         },
-        { "key": "salaryRange", "label": "Expected salary", "type": "salary-range" },
-        { "key": "candidateLanguages", "label": "Languages you speak", "type": "languages",
-          "help": "Add each language and your level (A1–C2 or Native)." },
-        { "key": "workAuth", "label": "Where you can legally work", "type": "checkboxes",
-          "options": ["EU", "UK", "US", "Other"]
+        { "key": "relocationScope", "label": "Are you willing to relocate?", "type": "radio", "required": true,
+          "options": [
+            { "value": "no", "label": "No, staying put" },
+            { "value": "within_country", "label": "Out of city (same country)" },
+            { "value": "abroad", "label": "Out of country" },
+            { "value": "anywhere", "label": "Anywhere in the world" }
+          ]
+        },
+        { "key": "acceptedCities", "label": "Specific cities or regions you'd relocate to", "type": "tags",
+          "placeholder": "Type a city and press Enter",
+          "help": "Optional. Leave blank if you're open to anywhere in the chosen scope.",
+          "visibleIf": { "key": "relocationScope", "notEquals": "no" }
+        },
+        { "key": "relocationFactors", "label": "What factors influence that choice?", "type": "checkboxes",
+          "options": [
+            "Family / partner",
+            "Cost of living",
+            "Career opportunities",
+            "Climate / lifestyle",
+            "Healthcare / schools",
+            "Language",
+            "Visa / work rights"
+          ],
+          "visibleIf": { "key": "relocationScope", "notEquals": "no" }
+        },
+        { "key": "visaSponsorship", "label": "Do you need visa sponsorship now or in the future?", "type": "radio", "required": true,
+          "options": [
+            { "value": "no", "label": "No — I can work without sponsorship" },
+            { "value": "now", "label": "Yes — I need sponsorship now" },
+            { "value": "future", "label": "Not now, but I will in the future" }
+          ]
+        },
+        { "key": "workAuth", "label": "Where you can legally work today", "type": "checkboxes",
+          "options": ["EU", "UK", "US", "Canada", "Switzerland", "UAE", "Other"]
         }
+      ]
+    },
+
+    {
+      "key": "compensation",
+      "title": "Compensation, availability & languages",
+      "questions": [
+        { "key": "salaryRange", "label": "Expected salary", "type": "salary-range" },
+        { "key": "benefitsExpectations", "label": "Benefit expectations", "type": "textarea",
+          "placeholder": "e.g. health insurance, stock, learning budget, 30 days PTO…",
+          "help": "Optional. Anything beyond salary that matters to you." },
+        { "key": "availability", "label": "When can you start a new role?", "type": "select", "required": true,
+          "options": [
+            { "value": "immediate", "label": "Immediately" },
+            { "value": "2_weeks", "label": "Within 2 weeks" },
+            { "value": "1_month", "label": "1 month notice" },
+            { "value": "2_months", "label": "2 months notice" },
+            { "value": "3_months", "label": "3 months notice" },
+            { "value": "flexible", "label": "Flexible" }
+          ]
+        },
+        { "key": "candidateLanguages", "label": "Languages you speak", "type": "languages",
+          "help": "Add each language and your level (A1–C2 or Native)." }
       ]
     }
   ]
