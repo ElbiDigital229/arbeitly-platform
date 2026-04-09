@@ -2,6 +2,7 @@ import { prisma } from '../config/prisma.js';
 import { jobDiscoveryRepository } from '../repositories/job-discovery.repository.js';
 import { adminPromptRepository } from '../repositories/admin-prompt.repository.js';
 import { cvEnhanceService } from './cv-enhance.service.js';
+import { clService } from './cl.service.js';
 import { HttpError } from '../errors/HttpError.js';
 import { aiCompleteJson } from './external/ai-client.js';
 import { aiEnricherService } from './ai-enricher.service.js';
@@ -246,10 +247,18 @@ Return STRICT JSON only: {"score": <number 0-100>, "reasoning": "<2-4 sentence e
   async generateAndLink(queueItemId: string, candidateId: string, job: any) {
     const baseCv = await prisma.cV.findFirst({ where: { userId: candidateId, isBase: true } });
     if (!baseCv) {
-      await prisma.candidateJobQueue.update({ where: { id: queueItemId }, data: { status: 'CV_GENERATED' } });
+      // No base CV → nothing to tailor. Mark the queue item so the employee
+      // sees the gap and can upload one.
+      await prisma.candidateJobQueue.update({
+        where: { id: queueItemId },
+        data: { status: 'NO_BASE_CV' },
+      });
       return;
     }
 
+    // 1. Tailored CV — critical path. If this fails, abort before touching
+    //    the queue or creating a phantom application.
+    let generatedCv: Awaited<ReturnType<typeof prisma.cV.create>>;
     try {
       const tailoredData = await cvEnhanceService.generateTailoredCV(
         baseCv.id,
@@ -257,8 +266,7 @@ Return STRICT JSON only: {"score": <number 0-100>, "reasoning": "<2-4 sentence e
         job.title,
         job.company,
       );
-
-      const generatedCv = await prisma.cV.create({
+      generatedCv = await prisma.cV.create({
         data: {
           userId: candidateId,
           title: `${job.title} @ ${job.company}`,
@@ -270,29 +278,69 @@ Return STRICT JSON only: {"score": <number 0-100>, "reasoning": "<2-4 sentence e
           generatedForJobId: job.id,
         },
       });
-
+    } catch (err) {
+      console.error('[JobDiscovery] CV tailoring failed:', err);
       await prisma.candidateJobQueue.update({
         where: { id: queueItemId },
-        data: { status: 'CV_GENERATED', generatedCvId: generatedCv.id },
+        data: { status: 'CV_FAILED' },
       });
-
-      // Create TO_APPLY application
-      await prisma.application.create({
-        data: {
-          userId: candidateId,
-          jobTitle: job.title,
-          companyName: job.company,
-          jobUrl: job.url || undefined,
-          jobDescription: job.description || undefined,
-          status: 'TO_APPLY',
-          source: 'discovery',
-          cvUsed: generatedCv.id,
-        },
-      });
-    } catch (err) {
-      console.error('[JobDiscovery] Generation error:', err);
-      await prisma.candidateJobQueue.update({ where: { id: queueItemId }, data: { status: 'CV_GENERATED' } });
+      return;
     }
+
+    // 2. Tailored cover letter — non-blocking. If the candidate has no
+    //    base CL, or CL generation fails, we still ship the CV and the
+    //    TO_APPLY application. The employee can hand-write a CL later.
+    let generatedClId: string | null = null;
+    try {
+      const baseCl = await prisma.coverLetter.findFirst({
+        where: { userId: candidateId, isBase: true },
+      });
+      if (baseCl) {
+        const clText = await clService.generateForJob(
+          candidateId,
+          job.title,
+          job.company,
+          job.description || job.requirements || job.title,
+        );
+        const generatedCl = await prisma.coverLetter.create({
+          data: {
+            userId: candidateId,
+            title: `${job.title} @ ${job.company}`,
+            content: clText,
+            language: baseCl.language,
+            parentId: baseCl.id,
+            parentType: 'variant',
+          },
+        });
+        generatedClId = generatedCl.id;
+      }
+    } catch (err) {
+      console.error('[JobDiscovery] CL generation failed (non-fatal):', err);
+    }
+
+    // 3. Link both artifacts to the queue item + TO_APPLY application
+    await prisma.candidateJobQueue.update({
+      where: { id: queueItemId },
+      data: {
+        status: generatedClId ? 'READY' : 'CV_GENERATED',
+        generatedCvId: generatedCv.id,
+        generatedClId,
+      },
+    });
+
+    await prisma.application.create({
+      data: {
+        userId: candidateId,
+        jobTitle: job.title,
+        companyName: job.company,
+        jobUrl: job.url || undefined,
+        jobDescription: job.description || undefined,
+        status: 'TO_APPLY',
+        source: 'discovery',
+        cvUsed: generatedCv.id,
+        clUsed: generatedClId ?? undefined,
+      },
+    });
   },
 
   /**
@@ -331,6 +379,7 @@ Return STRICT JSON only: {"score": <number 0-100>, "reasoning": "<2-4 sentence e
       include: {
         job: true,
         generatedCv: { select: { id: true, title: true } },
+        generatedCl: { select: { id: true, title: true } },
       },
       orderBy: { createdAt: 'desc' },
     });

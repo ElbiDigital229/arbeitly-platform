@@ -222,6 +222,7 @@ model CoverLetter {
   user     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   parent   CoverLetter? @relation("CLVersions", fields: [parentId], references: [id])
   children CoverLetter[] @relation("CLVersions")
+  queueItems CandidateJobQueue[] @relation("QueueCoverLetter")
 
   @@index([userId])
 }
@@ -240,6 +241,7 @@ model Application {
   nextAction     String?
   jobDescription String?
   cvUsed         String?
+  clUsed         String?
   references     String?
   addedById      String?
   source         String?           @default("self")
@@ -317,12 +319,14 @@ model CandidateJobQueue {
   relevanceScore Float?
   status         String   @default("PENDING")
   generatedCvId  String?
+  generatedClId  String?
   createdAt      DateTime @default(now())
 
   candidate   User          @relation("QueueCandidate", fields: [candidateId], references: [id])
   job         JobDiscovery  @relation(fields: [jobId], references: [id])
   employee    User          @relation("QueueEmployee", fields: [employeeId], references: [id])
   generatedCv CV?           @relation(fields: [generatedCvId], references: [id])
+  generatedCl CoverLetter?  @relation("QueueCoverLetter", fields: [generatedClId], references: [id])
 
   @@index([candidateId])
   @@index([jobId])
