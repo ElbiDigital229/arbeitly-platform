@@ -72,25 +72,35 @@
             <p v-if="job.description" class="text-xs text-muted-foreground mt-2 line-clamp-2">{{ job.description }}</p>
 
             <!-- Per-candidate match badges (only when filter is active) -->
-            <div v-if="job.matches && Object.keys(job.matches).length > 0" class="flex flex-wrap gap-1.5 mt-3">
-              <template v-for="cid in selectedCandidateIds" :key="cid">
-                <div
-                  v-if="job.matches[cid] && job.matches[cid].score >= minScore"
-                  class="flex items-center gap-1.5 h-7 px-2.5 rounded-full text-[11px] font-medium border"
-                  :class="bandClasses(job.matches[cid].score)"
-                  :title="topReasonText(job.matches[cid])"
-                >
-                  <span class="truncate max-w-[100px]">{{ candidateNameMap[cid] }}</span>
-                  <span class="font-bold tabular-nums">{{ job.matches[cid].score }}%</span>
-                  <button
-                    @click.stop="addToQueue(job.id, cid)"
-                    :disabled="queuing[`${job.id}-${cid}`]"
-                    class="ml-1 h-5 w-5 rounded-full flex items-center justify-center bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50"
-                    :title="`Add to ${candidateNameMap[cid]}'s queue`"
+            <div v-if="job.matches && Object.keys(job.matches).length > 0" class="mt-3 space-y-2">
+              <div class="flex flex-wrap gap-1.5">
+                <template v-for="cid in selectedCandidateIds" :key="cid">
+                  <div
+                    v-if="job.matches[cid] && job.matches[cid].score >= minScore"
+                    class="flex items-center gap-1.5 h-7 px-2.5 rounded-full text-[11px] font-medium border cursor-pointer"
+                    :class="bandClasses(job.matches[cid].score)"
+                    :title="topReasonText(job.matches[cid])"
+                    @click="toggleMatchDetail(`${job.id}-${cid}`)"
                   >
-                    <span class="mdi mdi-plus text-sm leading-none" />
-                  </button>
-                </div>
+                    <span class="truncate max-w-[100px]">{{ candidateNameMap[cid] }}</span>
+                    <span class="font-bold tabular-nums">{{ job.matches[cid].score }}%</span>
+                    <button
+                      @click.stop="addToQueue(job.id, cid)"
+                      :disabled="queuing[`${job.id}-${cid}`]"
+                      class="ml-1 h-5 w-5 rounded-full flex items-center justify-center bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                      :title="`Add to ${candidateNameMap[cid]}'s queue`"
+                    >
+                      <span class="mdi mdi-plus text-sm leading-none" />
+                    </button>
+                  </div>
+                </template>
+              </div>
+              <!-- Expanded breakdown for clicked badge -->
+              <template v-for="cid in selectedCandidateIds" :key="'detail-'+cid">
+                <MatchBreakdownCard
+                  v-if="job.matches[cid] && expandedMatchKeys.has(`${job.id}-${cid}`)"
+                  :match="job.matches[cid]"
+                />
               </template>
             </div>
           </div>
@@ -111,22 +121,27 @@
         <div v-if="matchingJobId === job.id" class="mt-4 pt-4 border-t border-border space-y-3">
           <h4 class="text-sm font-semibold text-foreground">Your Candidates</h4>
           <div v-if="candidates.length === 0" class="text-xs text-muted-foreground">No candidates assigned to you.</div>
-          <div v-for="c in candidates" :key="c.id" class="flex items-center justify-between py-2 px-3 rounded-lg bg-secondary/30">
-            <div>
-              <p class="text-sm font-medium text-foreground">{{ c.profile?.firstName }} {{ c.profile?.lastName }}</p>
-              <p class="text-xs text-muted-foreground">{{ c.email }}</p>
+          <div v-for="c in candidates" :key="c.id" class="py-2 px-3 rounded-lg bg-secondary/30 space-y-2">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm font-medium text-foreground">{{ c.profile?.firstName }} {{ c.profile?.lastName }}</p>
+                <p class="text-xs text-muted-foreground">{{ c.email }}</p>
+              </div>
+              <div class="flex items-center gap-2">
+                <span v-if="scores[`${job.id}-${c.id}`] !== undefined" class="text-xs font-semibold tabular-nums" :class="scores[`${job.id}-${c.id}`] >= 70 ? 'text-green-500' : scores[`${job.id}-${c.id}`] >= 40 ? 'text-yellow-500' : 'text-muted-foreground'">
+                  {{ scores[`${job.id}-${c.id}`] }}%
+                </span>
+                <button @click="scoreCandidate(job.id, c.id)" :disabled="scoring[`${job.id}-${c.id}`]" class="h-7 px-2 rounded text-[10px] font-medium border border-border text-foreground hover:bg-secondary/60 disabled:opacity-50">
+                  {{ scoring[`${job.id}-${c.id}`] ? '...' : 'Score' }}
+                </button>
+                <button @click="addToQueue(job.id, c.id)" :disabled="queuing[`${job.id}-${c.id}`]" class="h-7 px-2 rounded text-[10px] font-medium bg-primary text-primary-foreground disabled:opacity-50">
+                  {{ queuing[`${job.id}-${c.id}`] ? '...' : 'Add to Queue' }}
+                </button>
+              </div>
             </div>
-            <div class="flex items-center gap-2">
-              <span v-if="scores[`${job.id}-${c.id}`] !== undefined" class="text-xs font-semibold tabular-nums" :class="scores[`${job.id}-${c.id}`] >= 70 ? 'text-green-500' : scores[`${job.id}-${c.id}`] >= 40 ? 'text-yellow-500' : 'text-muted-foreground'">
-                {{ scores[`${job.id}-${c.id}`] }}%
-              </span>
-              <button @click="scoreCandidate(job.id, c.id)" :disabled="scoring[`${job.id}-${c.id}`]" class="h-7 px-2 rounded text-[10px] font-medium border border-border text-foreground hover:bg-secondary/60 disabled:opacity-50">
-                {{ scoring[`${job.id}-${c.id}`] ? '...' : 'Score' }}
-              </button>
-              <button @click="addToQueue(job.id, c.id)" :disabled="queuing[`${job.id}-${c.id}`]" class="h-7 px-2 rounded text-[10px] font-medium bg-primary text-primary-foreground disabled:opacity-50">
-                {{ queuing[`${job.id}-${c.id}`] ? '...' : 'Add to Queue' }}
-              </button>
-            </div>
+            <p v-if="reasonings[`${job.id}-${c.id}`]" class="text-xs text-muted-foreground bg-muted/50 rounded-lg p-3 leading-relaxed">
+              <span class="font-semibold text-foreground">AI reasoning:</span> {{ reasonings[`${job.id}-${c.id}`] }}
+            </p>
           </div>
         </div>
       </div>
@@ -221,13 +236,23 @@
 import { ref, computed, onMounted, watch } from 'vue';
 import api from '../../services/api';
 import { useEmployeeStore } from '../../stores/employee';
+import MatchBreakdownCard from '../../components/MatchBreakdownCard.vue';
 
 const store = useEmployeeStore();
 const headers = store.getAuthHeaders();
 
+interface Factor {
+  key: string;
+  label: string;
+  score: number;
+  weight: number;
+  contribution: number;
+  evidence: string;
+}
 interface MatchResult {
   score: number;
   band: 'excellent' | 'strong' | 'possible' | 'weak' | 'poor';
+  factors: Factor[];
   topReasons: string[];
   topGaps: string[];
 }
@@ -252,6 +277,7 @@ const formError = ref('');
 const saving = ref(false);
 const matchingJobId = ref<string | null>(null);
 const scores = ref<Record<string, number>>({});
+const reasonings = ref<Record<string, string>>({});
 const scoring = ref<Record<string, boolean>>({});
 const queuing = ref<Record<string, boolean>>({});
 
@@ -260,6 +286,12 @@ const selectedCandidateIds = ref<string[]>([]);
 const minScore = ref(70);
 const matchedJobs = ref<Job[]>([]);
 const matchLoading = ref(false);
+const expandedMatchKeys = ref<Set<string>>(new Set());
+function toggleMatchDetail(key: string) {
+  const next = new Set(expandedMatchKeys.value);
+  if (next.has(key)) next.delete(key); else next.add(key);
+  expandedMatchKeys.value = next;
+}
 
 const candidateNameMap = computed<Record<string, string>>(() => {
   const m: Record<string, string> = {};
@@ -508,6 +540,7 @@ async function scoreCandidate(jobId: string, candidateId: string) {
   try {
     const { data } = await api.post(`/jobs/${jobId}/score/${candidateId}`, {}, { headers, timeout: 180000 });
     scores.value[key] = data.data.score;
+    if (data.data.reasoning) reasonings.value[key] = data.data.reasoning;
   } catch { scores.value[key] = 0; }
   finally { scoring.value[key] = false; }
 }

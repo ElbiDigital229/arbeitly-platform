@@ -11,8 +11,8 @@
   ],
 
   "weights": {
-    "roleMatch":         25,
-    "skillMatch":        30,
+    "roleMatch":         30,
+    "skillMatch":        25,
     "industryMatch":     10,
     "experienceMatch":   10,
     "locationMatch":     10,

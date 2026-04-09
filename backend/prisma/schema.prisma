@@ -318,6 +318,8 @@ model CandidateJobQueue {
   jobId          String
   employeeId     String
   relevanceScore Float?
+  reasoning      String?
+  matchFactors   Json?
   status         String   @default("PENDING")
   generatedCvId  String?
   generatedClId  String?

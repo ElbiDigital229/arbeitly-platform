@@ -12,22 +12,32 @@ import type { CreateJobDiscoveryDtoType } from '../dtos/job-discovery.dto.js';
 const DEFAULT_JOB_MATCHING_PROMPT = `You are an expert job-matching analyst for Arbeitly, a German job-search platform.
 You will be given a job posting and a complete candidate dossier consisting of: (1) profile basics, (2) full onboarding questionnaire answers, (3) the candidate's base CV (parsed JSON), and (4) FAQ / interview-prep items written by the candidate's coach.
 
-Score the match on a scale of 0–100 where:
-- 90–100: Excellent fit — meets nearly all hard requirements, location/language aligned, career goals match
-- 70–89: Strong fit — meets most hard requirements, minor gaps the candidate could close quickly
-- 50–69: Possible fit — meaningful overlap but significant gaps in skills, location, language, or seniority
-- 30–49: Weak fit — only superficial overlap
-- 0–29: Poor fit or wrong domain entirely
+IMPORTANT — the onboarding data may contain free-text "Other" fields that the candidate typed in themselves. These are EQUAL in weight to taxonomy-selected values:
+- "currentRoleIdOther": the candidate's current role title if not in the standard list
+- "targetRoleIdsOther": target role titles the candidate typed in
+- "skillIdsOther": additional skills not in the standard taxonomy
+Always cross-reference these free-text fields against the job requirements.
 
-Consider in order of importance:
-1. Hard requirements (must-have skills, certifications, language level, work authorization)
-2. Role/title alignment with the candidate's target roles from onboarding
-3. Years of experience and seniority vs. job seniority
-4. Location and relocation willingness
-5. Salary expectations vs. job offer
-6. Career goals, motivation, and any constraints expressed in onboarding/FAQ
+Career switchers: if "switchCareerPath" is "yes" or "maybe", the candidate is open to changing fields. In that case, be more lenient on exact role/title mismatch and instead focus on transferable skills, education, and the candidate's stated target roles.
 
-Be strict and evidence-based — cite specific facts from the candidate dossier in your reasoning.`;
+Score the match on a scale of 0–100 using these bands:
+- 95–100: Near-perfect match — role, skills, experience, location, and language all align precisely
+- 85–94: Excellent fit — meets nearly all requirements, at most one minor gap
+- 75–84: Strong fit — meets most requirements, one or two gaps the candidate could close quickly
+- 65–74: Good fit — clear alignment on role and core skills, but notable gaps (e.g. language level, exact seniority, or location)
+- 50–64: Possible fit — meaningful overlap in domain or skills, but significant mismatches in multiple areas
+- 30–49: Weak fit — only superficial overlap; different domain, seniority, or location with little flexibility
+- 0–29: Poor fit — wrong domain, missing critical requirements, or fundamental misalignment
+
+Allocate your scoring weight approximately as follows:
+1. Role / title alignment (~30%): Compare the job title and role to the candidate's current role, target roles (including "Other" free-text fields), and CV work history. Same role family or closely related titles score high.
+2. Skills overlap (~25%): Match job-required skills against the candidate's taxonomy skills, "skillIdsOther" free-text skills, and skills demonstrated in the CV.
+3. Experience / seniority (~15%): Years of experience vs. job requirements; seniority level alignment.
+4. Location compatibility (~10%): Candidate's base city/country vs. job location, relocation willingness, remote preferences, and accepted cities from onboarding.
+5. Language & work authorization (~10%): Required language levels vs. candidate's stated levels; visa/work auth status.
+6. Salary & career goals (~10%): Salary range overlap; alignment with career goals, motivation, and preferences from onboarding and FAQ.
+
+Be evidence-based — cite specific facts from the candidate dossier in your reasoning. When a candidate's role or skills closely match the job but minor factors (salary, exact location) differ, the score should still be high.`;
 
 export const jobDiscoveryService = {
   async getJobs() {
@@ -191,9 +201,9 @@ ${cvData ? JSON.stringify(cvData).slice(0, 6000) : 'No base CV available.'}
 ${faqBlock}
 
 ═══════════════ TASK ═══════════════
-Score how well this candidate matches the job above on a scale of 0–100.
-Weigh role/title fit, required skills vs CV experience, location compatibility (including relocation willingness from onboarding), language requirements, salary expectations, career goals from onboarding, and any preferences expressed in FAQ items.
-Return STRICT JSON only: {"score": <number 0-100>, "reasoning": "<2-4 sentence explanation citing specific evidence>"}`;
+Score how well this candidate matches the job above on a scale of 0–100 using the weighted criteria and bands described above.
+Pay special attention to: (a) role/title alignment including free-text "Other" fields, (b) whether "switchCareerPath" indicates openness to career change, (c) transferable skills from CV work history even if not in taxonomy.
+Return STRICT JSON only: {"score": <number 0-100>, "reasoning": "<2-4 sentence explanation citing specific evidence from the candidate dossier>"}`;
 
     try {
       return await aiCompleteJson<{ score: number; reasoning: string }>(prompt, { maxTokens: 1024 });
@@ -218,12 +228,61 @@ Return STRICT JSON only: {"score": <number 0-100>, "reasoning": "<2-4 sentence e
     });
     if (existing) throw HttpError.badRequest('Job already in candidate queue');
 
-    // Score relevance
+    // Score relevance (AI + deterministic)
     let relevanceScore: number | undefined;
+    let reasoning: string | undefined;
+    let matchFactors: any | undefined;
+
+    // 1. AI scoring — contextual, returns score + reasoning
     try {
       const result = await this.scoreRelevance(jobId, candidateId);
       relevanceScore = result.score;
-    } catch { /* score failed, continue without it */ }
+      reasoning = result.reasoning;
+    } catch { /* AI score failed, continue without it */ }
+
+    // 2. Deterministic scoring — factor breakdown (non-blocking, pure CPU)
+    try {
+      const profile = await prisma.candidateProfile.findUnique({ where: { userId: candidateId } });
+      if (profile) {
+        const deterministicResult = await matchingService.score(
+          {
+            currentRoleId: profile.currentRoleId,
+            targetRoleIds: profile.targetRoleIds,
+            targetIndustryIds: profile.targetIndustryIds,
+            skillIds: profile.skillIds,
+            yearsExperienceMin: profile.yearsExperienceMin,
+            yearsExperienceMax: profile.yearsExperienceMax,
+            salaryMin: profile.salaryMin,
+            salaryMax: profile.salaryMax,
+            salaryCurrency: profile.salaryCurrency,
+            baseCity: profile.baseCity,
+            baseCountry: profile.baseCountry,
+            acceptsRemote: profile.acceptsRemote ?? false,
+            willingToRelocate: profile.willingToRelocate ?? false,
+            acceptedCities: profile.acceptedCities,
+            candidateLanguages: (profile.candidateLanguages as any) ?? [],
+          },
+          {
+            id: job.id,
+            roleId: job.roleId,
+            roleFamily: job.roleFamily,
+            skillIds: job.skillIds,
+            industryIds: job.industryIds,
+            city: job.city,
+            country: job.country,
+            remote: job.remote,
+            salaryMin: job.salaryMin,
+            salaryMax: job.salaryMax,
+            salaryCurrency: job.salaryCurrency,
+            yearsExperienceMin: job.yearsExperienceMin,
+            yearsExperienceMax: job.yearsExperienceMax,
+            languagesRequired: job.languagesRequired,
+            workAuthRequired: job.workAuthRequired,
+          },
+        );
+        matchFactors = deterministicResult;
+      }
+    } catch { /* deterministic score failed, continue without it */ }
 
     // Create queue item
     const queueItem = await prisma.candidateJobQueue.create({
@@ -232,6 +291,8 @@ Return STRICT JSON only: {"score": <number 0-100>, "reasoning": "<2-4 sentence e
         job: { connect: { id: jobId } },
         employee: { connect: { id: employeeId } },
         relevanceScore,
+        reasoning,
+        matchFactors,
         status: 'PENDING',
       },
     });

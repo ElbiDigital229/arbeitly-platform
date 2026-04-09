@@ -317,6 +317,13 @@
                   <span class="mdi mdi-open-in-new" /> Job posting
                 </a>
               </div>
+              <!-- Score reasoning + factor breakdown (always visible) -->
+              <div v-if="item.reasoning || item.matchFactors" class="mt-3 space-y-2">
+                <p v-if="item.reasoning" class="text-xs text-muted-foreground bg-muted/50 rounded-lg p-3 leading-relaxed">
+                  <span class="font-semibold text-foreground">AI reasoning:</span> {{ item.reasoning }}
+                </p>
+                <MatchBreakdownCard v-if="item.matchFactors" :match="item.matchFactors" />
+              </div>
             </div>
             <div class="shrink-0 flex flex-col items-end gap-1">
               <button
@@ -437,6 +444,7 @@ import { useRoute } from 'vue-router';
 import api from '../../services/api';
 import { useEmployeeStore } from '../../stores/employee';
 import CVBuilderView from '../candidate/CVBuilderView.vue';
+import MatchBreakdownCard from '../../components/MatchBreakdownCard.vue';
 
 const store = useEmployeeStore();
 const route = useRoute();
@@ -639,6 +647,12 @@ const tabs = [
 const pipeline = ref<any[]>([]);
 const pipelineLoading = ref(false);
 const applyingId = ref<string | null>(null);
+const expandedScoreIds = ref<Set<string>>(new Set());
+function toggleScoreDetail(id: string) {
+  const next = new Set(expandedScoreIds.value);
+  if (next.has(id)) next.delete(id); else next.add(id);
+  expandedScoreIds.value = next;
+}
 
 async function loadPipeline() {
   pipelineLoading.value = true;
