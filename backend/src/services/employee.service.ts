@@ -156,9 +156,30 @@ export const employeeService = {
 
   async getCandidateOnboarding(employeeId: string, candidateId: string) {
     await this.verifyAssignment(employeeId, candidateId);
-    const profile = await prisma.candidateProfile.findUnique({ where: { userId: candidateId } });
+    const profile = await prisma.candidateProfile.findUnique({
+      where: { userId: candidateId },
+    });
     if (!profile) throw HttpError.notFound('Candidate profile not found');
+
+    // Resolve taxonomy IDs to names for human-readable display
+    const [roles, skills, industries] = await Promise.all([
+      profile.targetRoleIds.length
+        ? prisma.jobRole.findMany({ where: { id: { in: profile.targetRoleIds } } })
+        : Promise.resolve([]),
+      profile.skillIds.length
+        ? prisma.skill.findMany({ where: { id: { in: profile.skillIds } } })
+        : Promise.resolve([]),
+      profile.targetIndustryIds.length
+        ? prisma.industry.findMany({ where: { id: { in: profile.targetIndustryIds } } })
+        : Promise.resolve([]),
+    ]);
+
+    const currentRoleObj = profile.currentRoleId
+      ? await prisma.jobRole.findUnique({ where: { id: profile.currentRoleId } })
+      : null;
+
     return {
+      // Personal
       firstName: profile.firstName,
       lastName: profile.lastName,
       phone: profile.phone,
@@ -166,11 +187,40 @@ export const employeeService = {
       bio: profile.bio,
       linkedinUrl: profile.linkedinUrl,
       portfolioUrl: profile.portfolioUrl,
-      baseCoverLetter: profile.baseCoverLetter,
-      dummyEmail: profile.dummyEmail,
-      dummyPassword: profile.dummyPassword,
       preferredLanguage: profile.preferredLanguage,
       onboardingCompleted: profile.onboardingCompleted,
+
+      // Current situation
+      currentRole: currentRoleObj?.name ?? null,
+      yearsExperienceMin: profile.yearsExperienceMin,
+      yearsExperienceMax: profile.yearsExperienceMax,
+      skills: skills.map((s) => s.name),
+
+      // Goals
+      targetRoles: roles.map((r) => r.name),
+      targetIndustries: industries.map((i) => i.name),
+      careerGoal: profile.careerGoal,
+
+      // Location & mobility
+      baseCity: profile.baseCity,
+      baseCountry: profile.baseCountry,
+      acceptsRemote: profile.acceptsRemote,
+      willingToRelocate: profile.willingToRelocate,
+      acceptedCities: profile.acceptedCities,
+
+      // Compensation & legal
+      salaryMin: profile.salaryMin,
+      salaryMax: profile.salaryMax,
+      salaryCurrency: profile.salaryCurrency,
+      candidateLanguages: profile.candidateLanguages,
+      workAuth: profile.workAuth,
+
+      // Credentials
+      dummyEmail: profile.dummyEmail,
+      dummyPassword: profile.dummyPassword,
+      baseCoverLetter: profile.baseCoverLetter,
+
+      // Everything else from onboarding config (workMode, relocationScope, etc.)
       onboardingData: profile.onboardingData,
     };
   },

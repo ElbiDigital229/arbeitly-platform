@@ -457,6 +457,12 @@ const onboarding = ref<any>(null);
 
 const LANG_LABEL: Record<string, string> = { en: 'English', de: 'Deutsch' };
 
+const COUNTRY_NAMES: Record<string, string> = { DE: 'Germany', AT: 'Austria', CH: 'Switzerland', FR: 'France', NL: 'Netherlands', BE: 'Belgium', LU: 'Luxembourg', IT: 'Italy', ES: 'Spain', PT: 'Portugal', IE: 'Ireland', GB: 'United Kingdom', DK: 'Denmark', SE: 'Sweden', NO: 'Norway', FI: 'Finland', PL: 'Poland', CZ: 'Czechia', SK: 'Slovakia', HU: 'Hungary', RO: 'Romania', BG: 'Bulgaria', GR: 'Greece', HR: 'Croatia', US: 'United States', CA: 'Canada', AU: 'Australia', JP: 'Japan', SG: 'Singapore', IN: 'India', AE: 'UAE', SA: 'Saudi Arabia', TR: 'Turkey', ZA: 'South Africa', BR: 'Brazil', MX: 'Mexico', CN: 'China', KR: 'South Korea' };
+const WORK_MODE_LABEL: Record<string, string> = { remote: 'Remote only', hybrid: 'Hybrid', onsite: 'On-site', any: 'Open to any' };
+const RELOC_LABEL: Record<string, string> = { no: 'No', within_country: 'Within country', abroad: 'Out of country', anywhere: 'Anywhere' };
+const VISA_LABEL: Record<string, string> = { no: 'No sponsorship needed', now: 'Needs sponsorship now', future: 'Will need in future' };
+const AVAIL_LABEL: Record<string, string> = { immediate: 'Immediately', '2_weeks': 'Within 2 weeks', '1_month': '1 month notice', '2_months': '2 months notice', '3_months': '3 months notice', flexible: 'Flexible' };
+
 const onboardingGroups = [
   {
     title: 'Personal',
@@ -466,11 +472,9 @@ const onboardingGroups = [
       { key: 'lastName', label: 'Last Name' },
       { key: 'phone', label: 'Phone' },
       { key: 'location', label: 'Location' },
-      { key: 'applicationEmail', label: 'Email for Applications', mono: true },
-      { key: 'linkedin', label: 'LinkedIn URL', mono: true, full: true },
-      { key: 'dob', label: 'Date of Birth' },
-      { key: 'placeOfBirth', label: 'Place of Birth' },
-      { key: 'address', label: 'Address', full: true },
+      { key: 'linkedinUrl', label: 'LinkedIn', mono: true, full: true },
+      { key: 'portfolioUrl', label: 'Portfolio', mono: true, full: true },
+      { key: 'preferredLanguage', label: 'Preferred Language' },
       { key: 'bio', label: 'Bio', full: true, pre: true },
     ],
   },
@@ -478,59 +482,60 @@ const onboardingGroups = [
     title: 'Current Role & Experience',
     icon: 'mdi-briefcase-outline',
     fields: [
-      { key: 'currentJobTitle', label: 'Job Title' },
-      { key: 'currentEmployer', label: 'Employer' },
-      { key: 'currentField', label: 'Field' },
-      { key: 'yearsExperience', label: 'Years of Experience' },
-      { key: 'currentSalary', label: 'Current Salary (€)' },
-      { key: 'workedInGermany', label: 'Worked in Germany?' },
-      { key: 'noticePeriod', label: 'Notice Period' },
+      { key: 'currentRole', label: 'Current Role' },
+      { key: 'currentRoleIdOther', label: 'Role (typed)', help: true },
+      { key: '_yearsExperience', label: 'Years of Experience' },
+      { key: 'switchCurrentRole', label: 'Willing to Switch Role' },
+      { key: 'switchCareerPath', label: 'Switch Career Path' },
     ],
   },
   {
-    title: 'Education',
-    icon: 'mdi-school-outline',
+    title: 'Skills',
+    icon: 'mdi-wrench-outline',
     fields: [
-      { key: 'highestStudy', label: 'Highest Level of Study' },
-      { key: 'degreeTitle', label: 'Degree Title' },
-      { key: 'university', label: 'University' },
-      { key: 'universityLocation', label: 'University Location' },
+      { key: 'skills', label: 'Skills', full: true },
+      { key: 'skillIdsOther', label: 'Other Skills (typed)', full: true, help: true },
+      { key: 'skillsToHighlight', label: 'Skills to Highlight', full: true, pre: true },
     ],
   },
   {
-    title: 'Skills & Goals',
+    title: 'Goals',
     icon: 'mdi-target',
     fields: [
-      { key: 'topSkills', label: 'Top Skills', full: true, pre: true },
-      { key: 'certifications', label: 'Certifications', full: true, pre: true },
+      { key: 'targetRoles', label: 'Target Roles', full: true },
+      { key: 'targetRoleIdsOther', label: 'Other Roles (typed)', full: true, help: true },
+      { key: 'targetIndustries', label: 'Target Industries', full: true },
+      { key: 'targetIndustryIdsOther', label: 'Other Industries (typed)', full: true, help: true },
       { key: 'careerGoal', label: 'Primary Career Goal' },
-      { key: 'employmentType', label: 'Employment Type' },
-      { key: 'targetRoles', label: 'Target Roles', full: true, pre: true },
-      { key: 'targetIndustries', label: 'Target Industries', full: true, pre: true },
-      { key: 'targetCompanies', label: 'Target Companies', full: true, pre: true },
-      { key: 'openToCareerChange', label: 'Open to Career Change' },
     ],
   },
   {
-    title: 'Preferences',
-    icon: 'mdi-tune',
+    title: 'Location & Mobility',
+    icon: 'mdi-map-marker-outline',
     fields: [
-      { key: 'preferredLocation', label: 'Preferred Location' },
-      { key: 'openToRelocation', label: 'Open to Relocation' },
-      { key: 'preferredSalary', label: 'Preferred Salary' },
-      { key: 'germanLevel', label: 'German Language Level' },
-      { key: 'drivingLicense', label: 'Driving License' },
-      { key: 'preferredLanguage', label: 'Preferred Language' },
+      { key: '_baseLocation', label: 'Based In' },
+      { key: 'workMode', label: 'Work Mode' },
+      { key: 'relocationScope', label: 'Relocation Scope' },
+      { key: 'acceptedCities', label: 'Relocation Cities', full: true },
+      { key: 'relocationFactors', label: 'Relocation Factors', full: true },
     ],
   },
   {
-    title: 'Motivation & Other',
-    icon: 'mdi-lightbulb-outline',
+    title: 'Compensation & Availability',
+    icon: 'mdi-cash-multiple',
     fields: [
-      { key: 'transitionMotivation', label: 'What motivates this change?', full: true, pre: true },
-      { key: 'trainingNeeds', label: 'Training Needs', full: true, pre: true },
-      { key: 'howHeard', label: 'How they heard about us' },
-      { key: 'additionalInfo', label: 'Additional Info', full: true, pre: true },
+      { key: '_salary', label: 'Expected Salary' },
+      { key: 'benefitsExpectations', label: 'Benefits', full: true, pre: true },
+      { key: 'availability', label: 'Availability' },
+    ],
+  },
+  {
+    title: 'Legal & Languages',
+    icon: 'mdi-earth',
+    fields: [
+      { key: 'visaSponsorship', label: 'Visa Sponsorship' },
+      { key: 'workAuth', label: 'Work Authorization', full: true },
+      { key: 'candidateLanguages', label: 'Languages', full: true },
     ],
   },
   {
@@ -553,9 +558,46 @@ const onboardingGroups = [
 function onboardingValue(key: string): string {
   const ob = onboarding.value;
   if (!ob) return '';
+
+  // Computed / derived keys
+  if (key === '_yearsExperience') {
+    const mn = ob.yearsExperienceMin; const mx = ob.yearsExperienceMax;
+    if (mn == null && mx == null) return '';
+    return `${mn ?? '?'} – ${mx ?? '?'} years`;
+  }
+  if (key === '_baseLocation') {
+    const country = COUNTRY_NAMES[ob.baseCountry] ?? ob.baseCountry;
+    const parts = [ob.baseCity, country].filter(Boolean);
+    return parts.join(', ') || '';
+  }
+  if (key === '_salary') {
+    if (!ob.salaryMin && !ob.salaryMax) return '';
+    const cur = ob.salaryCurrency || 'EUR';
+    return `${ob.salaryMin ?? '?'} – ${ob.salaryMax ?? '?'} ${cur}`;
+  }
+
   const v = ob[key] ?? ob.onboardingData?.[key];
   if (v == null || v === '') return '';
+
+  // Label lookups
   if (key === 'preferredLanguage') return LANG_LABEL[v] ?? String(v);
+  if (key === 'workMode') return WORK_MODE_LABEL[v] ?? String(v);
+  if (key === 'relocationScope') return RELOC_LABEL[v] ?? String(v);
+  if (key === 'visaSponsorship') return VISA_LABEL[v] ?? String(v);
+  if (key === 'availability') return AVAIL_LABEL[v] ?? String(v);
+
+  // Arrays (skills, roles, industries, cities, workAuth, relocationFactors)
+  if (Array.isArray(v)) {
+    if (v.length === 0) return '';
+    // candidateLanguages [{language, level}]
+    if (key === 'candidateLanguages') {
+      return v.map((l: any) => `${l.language || '?'} (${l.level || '?'})`).join(', ');
+    }
+    return v.join(', ');
+  }
+
+  if (typeof v === 'boolean') return v ? 'Yes' : 'No';
+
   return String(v);
 }
 
