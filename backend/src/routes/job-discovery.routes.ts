@@ -19,6 +19,7 @@ const requireEmployeeOrAdmin: RequestHandler = (req, _res, next) => {
 router.use(authenticate, requireEmployeeOrAdmin);
 
 router.get('/', jobDiscoveryController.getJobs);
+router.get('/with-matches', jobDiscoveryController.listWithMatches);
 router.get('/:id', jobDiscoveryController.getJob);
 router.post('/', validate(CreateJobDiscoveryDto), jobDiscoveryController.createJob);
 router.post('/bulk', validate(BulkCreateJobDiscoveryDto), jobDiscoveryController.bulkCreate);

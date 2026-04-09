@@ -5,6 +5,7 @@ import { cvEnhanceService } from './cv-enhance.service.js';
 import { HttpError } from '../errors/HttpError.js';
 import { aiCompleteJson } from './external/ai-client.js';
 import { aiEnricherService } from './ai-enricher.service.js';
+import { matchingService } from './matching.service.js';
 import type { CreateJobDiscoveryDtoType } from '../dtos/job-discovery.dto.js';
 
 const DEFAULT_JOB_MATCHING_PROMPT = `You are an expert job-matching analyst for Arbeitly, a German job-search platform.
@@ -292,6 +293,36 @@ Return STRICT JSON only: {"score": <number 0-100>, "reasoning": "<2-4 sentence e
       console.error('[JobDiscovery] Generation error:', err);
       await prisma.candidateJobQueue.update({ where: { id: queueItemId }, data: { status: 'CV_GENERATED' } });
     }
+  },
+
+  /**
+   * Employee-side: list jobs with deterministic match scores attached
+   * for one or more of the employee's assigned candidates. Filters out
+   * jobs where no selected candidate clears `minScore`.
+   *
+   * Authorization: caller must own all candidateIds (assigned employee
+   * relationship). Admin can pass any candidateIds.
+   */
+  async listJobsWithMatches(opts: {
+    callerId: string;
+    callerRole: 'ADMIN' | 'EMPLOYEE';
+    candidateIds: string[];
+    minScore?: number;
+  }) {
+    const { callerId, callerRole, candidateIds, minScore } = opts;
+    if (candidateIds.length === 0) return [];
+
+    if (callerRole === 'EMPLOYEE') {
+      const owned = await prisma.user.findMany({
+        where: { id: { in: candidateIds }, assignedEmployeeId: callerId },
+        select: { id: true },
+      });
+      if (owned.length !== candidateIds.length) {
+        throw HttpError.forbidden('One or more candidates are not assigned to you');
+      }
+    }
+
+    return matchingService.scoreJobsForCandidates(candidateIds, { minScore });
   },
 
   async getCandidateQueue(candidateId: string) {

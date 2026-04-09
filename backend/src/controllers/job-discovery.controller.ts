@@ -35,4 +35,17 @@ export const jobDiscoveryController = {
   reEnrich: asyncHandler(async (req, res) => {
     success(res, await jobDiscoveryService.reEnrichJob(req.params.id));
   }),
+
+  listWithMatches: asyncHandler(async (req, res) => {
+    const raw = (req.query.candidateIds as string) || '';
+    const candidateIds = raw.split(',').map((s) => s.trim()).filter(Boolean);
+    const minScore = req.query.minScore ? Number(req.query.minScore) : 0;
+    const result = await jobDiscoveryService.listJobsWithMatches({
+      callerId: req.user!.id,
+      callerRole: req.user!.role as 'ADMIN' | 'EMPLOYEE',
+      candidateIds,
+      minScore: Number.isFinite(minScore) ? minScore : 0,
+    });
+    success(res, result);
+  }),
 };

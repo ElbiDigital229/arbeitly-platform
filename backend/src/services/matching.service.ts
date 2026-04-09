@@ -395,4 +395,93 @@ export const matchingService = {
     results.sort((a, b) => b.match.score - a.match.score);
     return results;
   },
+
+  /**
+   * Score every published job against multiple candidates in one shot.
+   * Used by the employee Job Discovery view: pick a set of candidates and
+   * a min-score threshold, get back jobs where at least one candidate
+   * clears the threshold, with per-candidate match details.
+   *
+   * Returns jobs sorted by the *highest* score across the requested
+   * candidates (so a job that's 95% for one and 50% for another outranks
+   * a job that's 80% for both).
+   */
+  async scoreJobsForCandidates(
+    candidateIds: string[],
+    opts: { minScore?: number } = {},
+  ) {
+    if (candidateIds.length === 0) return [];
+    const minScore = opts.minScore ?? 0;
+
+    const profiles = await prisma.candidateProfile.findMany({
+      where: { userId: { in: candidateIds } },
+      include: { user: { select: { id: true, email: true } } },
+    });
+
+    const jobs = await prisma.jobDiscovery.findMany({
+      where: { isPublished: true },
+      orderBy: { createdAt: 'desc' },
+      include: { addedBy: { select: { email: true } } },
+    });
+
+    const results: Array<{
+      job: (typeof jobs)[number];
+      matches: Record<string, MatchResult>;
+      bestScore: number;
+    }> = [];
+
+    for (const job of jobs) {
+      const matches: Record<string, MatchResult> = {};
+      let bestScore = 0;
+      for (const profile of profiles) {
+        const m = await this.score(
+          {
+            currentRoleId: profile.currentRoleId,
+            targetRoleIds: profile.targetRoleIds,
+            targetIndustryIds: profile.targetIndustryIds,
+            skillIds: profile.skillIds,
+            yearsExperienceMin: profile.yearsExperienceMin,
+            yearsExperienceMax: profile.yearsExperienceMax,
+            salaryMin: profile.salaryMin,
+            salaryMax: profile.salaryMax,
+            salaryCurrency: profile.salaryCurrency,
+            baseCity: profile.baseCity,
+            baseCountry: profile.baseCountry,
+            acceptsRemote: profile.acceptsRemote,
+            willingToRelocate: profile.willingToRelocate,
+            acceptedCities: profile.acceptedCities,
+            candidateLanguages: (profile.candidateLanguages as any) ?? [],
+            workAuth: profile.workAuth,
+          },
+          {
+            id: job.id,
+            roleId: job.roleId,
+            roleFamily: job.roleFamily,
+            skillIds: job.skillIds,
+            industryIds: job.industryIds,
+            city: job.city,
+            country: job.country,
+            remote: job.remote,
+            salaryMin: job.salaryMin,
+            salaryMax: job.salaryMax,
+            salaryCurrency: job.salaryCurrency,
+            yearsExperienceMin: job.yearsExperienceMin,
+            yearsExperienceMax: job.yearsExperienceMax,
+            languagesRequired: job.languagesRequired,
+            workAuthRequired: job.workAuthRequired,
+          },
+        );
+        matches[profile.userId] = m;
+        if (m.score > bestScore) bestScore = m.score;
+      }
+
+      // Filter: keep only jobs where at least one selected candidate clears threshold
+      if (bestScore >= minScore) {
+        results.push({ job, matches, bestScore });
+      }
+    }
+
+    results.sort((a, b) => b.bestScore - a.bestScore);
+    return results;
+  },
 };

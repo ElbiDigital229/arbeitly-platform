@@ -15,17 +15,51 @@
       </div>
     </div>
 
+    <!-- Match filter bar -->
+    <div class="rounded-xl border border-border bg-card p-4 space-y-3">
+      <div class="flex items-center justify-between gap-3">
+        <div>
+          <h3 class="text-sm font-semibold text-foreground">Match for candidates</h3>
+          <p class="text-xs text-muted-foreground mt-0.5">Pick one or more of your assigned candidates to score every job in the pool against them.</p>
+        </div>
+        <button v-if="selectedCandidateIds.length > 0" @click="clearSelection" class="text-xs text-muted-foreground hover:text-foreground">Clear</button>
+      </div>
+      <div v-if="candidates.length === 0" class="text-xs text-muted-foreground">No candidates assigned to you.</div>
+      <div v-else class="flex flex-wrap gap-2">
+        <button
+          v-for="c in candidates"
+          :key="c.id"
+          @click="toggleCandidate(c.id)"
+          :class="[
+            'h-7 px-3 rounded-full text-xs font-medium border transition-colors',
+            selectedCandidateIds.includes(c.id)
+              ? 'bg-primary text-primary-foreground border-primary'
+              : 'border-border text-foreground hover:bg-secondary/60'
+          ]"
+        >
+          {{ c.profile?.firstName || c.email.split('@')[0] }} {{ c.profile?.lastName || '' }}
+        </button>
+      </div>
+      <div v-if="selectedCandidateIds.length > 0" class="flex items-center gap-3 pt-2 border-t border-border">
+        <label class="text-xs font-medium text-foreground shrink-0">Min score</label>
+        <input type="range" min="0" max="100" step="5" v-model.number="minScore" class="flex-1 accent-primary" />
+        <span class="text-xs font-semibold tabular-nums w-10 text-right" :class="minScore >= 70 ? 'text-primary' : 'text-muted-foreground'">{{ minScore }}%</span>
+        <span v-if="matchLoading" class="text-xs text-muted-foreground"><span class="mdi mdi-loading mdi-spin" /> Scoring…</span>
+      </div>
+    </div>
+
     <div v-if="loading" class="flex items-center justify-center py-16 text-muted-foreground">
       <span class="mdi mdi-loading mdi-spin text-2xl" />
     </div>
 
-    <div v-else-if="jobs.length === 0" class="flex flex-col items-center justify-center py-16 gap-2 text-muted-foreground">
+    <div v-else-if="visibleJobs.length === 0" class="flex flex-col items-center justify-center py-16 gap-2 text-muted-foreground">
       <span class="mdi mdi-briefcase-search-outline text-4xl opacity-20" />
-      <p class="text-sm">No jobs in the pool yet. Add one to get started.</p>
+      <p v-if="selectedCandidateIds.length > 0" class="text-sm">No jobs match the selected candidates at {{ minScore }}%+. Lower the threshold or pick different candidates.</p>
+      <p v-else class="text-sm">No jobs in the pool yet. Add one to get started.</p>
     </div>
 
     <div v-else class="space-y-3">
-      <div v-for="job in jobs" :key="job.id" class="rounded-xl border border-border bg-card p-5">
+      <div v-for="job in visibleJobs" :key="job.id" class="rounded-xl border border-border bg-card p-5">
         <div class="flex items-start justify-between gap-4">
           <div class="flex-1 min-w-0">
             <h3 class="font-display text-base font-semibold text-foreground">{{ job.title }}</h3>
@@ -36,6 +70,29 @@
               <span class="flex items-center gap-1"><span class="mdi mdi-account-outline" /> {{ job.addedBy?.email }}</span>
             </div>
             <p v-if="job.description" class="text-xs text-muted-foreground mt-2 line-clamp-2">{{ job.description }}</p>
+
+            <!-- Per-candidate match badges (only when filter is active) -->
+            <div v-if="job.matches && Object.keys(job.matches).length > 0" class="flex flex-wrap gap-1.5 mt-3">
+              <template v-for="cid in selectedCandidateIds" :key="cid">
+                <div
+                  v-if="job.matches[cid] && job.matches[cid].score >= minScore"
+                  class="flex items-center gap-1.5 h-7 px-2.5 rounded-full text-[11px] font-medium border"
+                  :class="bandClasses(job.matches[cid].score)"
+                  :title="topReasonText(job.matches[cid])"
+                >
+                  <span class="truncate max-w-[100px]">{{ candidateNameMap[cid] }}</span>
+                  <span class="font-bold tabular-nums">{{ job.matches[cid].score }}%</span>
+                  <button
+                    @click.stop="addToQueue(job.id, cid)"
+                    :disabled="queuing[`${job.id}-${cid}`]"
+                    class="ml-1 h-5 w-5 rounded-full flex items-center justify-center bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                    :title="`Add to ${candidateNameMap[cid]}'s queue`"
+                  >
+                    <span class="mdi mdi-plus text-sm leading-none" />
+                  </button>
+                </div>
+              </template>
+            </div>
           </div>
           <div class="flex items-center gap-2 shrink-0">
             <button @click="showCandidates(job)" class="h-8 px-3 rounded-lg text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20">
@@ -161,14 +218,31 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import api from '../../services/api';
 import { useEmployeeStore } from '../../stores/employee';
 
 const store = useEmployeeStore();
 const headers = store.getAuthHeaders();
 
-interface Job { id: string; title: string; company: string; url?: string; description?: string; location?: string; salary?: string; addedBy?: { email: string }; _count?: { queueItems: number }; }
+interface MatchResult {
+  score: number;
+  band: 'excellent' | 'strong' | 'possible' | 'weak' | 'poor';
+  topReasons: string[];
+  topGaps: string[];
+}
+interface Job {
+  id: string;
+  title: string;
+  company: string;
+  url?: string;
+  description?: string;
+  location?: string;
+  salary?: string;
+  addedBy?: { email: string };
+  _count?: { queueItems: number };
+  matches?: Record<string, MatchResult>;
+}
 
 const jobs = ref<Job[]>([]);
 const candidates = ref<any[]>([]);
@@ -180,6 +254,76 @@ const matchingJobId = ref<string | null>(null);
 const scores = ref<Record<string, number>>({});
 const scoring = ref<Record<string, boolean>>({});
 const queuing = ref<Record<string, boolean>>({});
+
+// Multi-candidate match filter
+const selectedCandidateIds = ref<string[]>([]);
+const minScore = ref(70);
+const matchedJobs = ref<Job[]>([]);
+const matchLoading = ref(false);
+
+const candidateNameMap = computed<Record<string, string>>(() => {
+  const m: Record<string, string> = {};
+  for (const c of candidates.value) {
+    const fn = c.profile?.firstName || '';
+    const ln = c.profile?.lastName || '';
+    m[c.id] = (fn || ln) ? `${fn} ${ln}`.trim() : c.email.split('@')[0];
+  }
+  return m;
+});
+
+const visibleJobs = computed<Job[]>(() => {
+  if (selectedCandidateIds.value.length === 0) return jobs.value;
+  return matchedJobs.value;
+});
+
+function toggleCandidate(id: string) {
+  const i = selectedCandidateIds.value.indexOf(id);
+  if (i === -1) selectedCandidateIds.value.push(id);
+  else selectedCandidateIds.value.splice(i, 1);
+}
+
+function clearSelection() {
+  selectedCandidateIds.value = [];
+  matchedJobs.value = [];
+}
+
+function bandClasses(score: number) {
+  if (score >= 85) return 'bg-green-500/15 text-green-600 border-green-500/30';
+  if (score >= 70) return 'bg-primary/15 text-primary border-primary/30';
+  if (score >= 50) return 'bg-yellow-500/15 text-yellow-600 border-yellow-500/30';
+  return 'bg-muted text-muted-foreground border-border';
+}
+
+function topReasonText(m: MatchResult): string {
+  if (m.topReasons.length > 0) return m.topReasons.join(' • ');
+  if (m.topGaps.length > 0) return 'Gaps: ' + m.topGaps.join(' • ');
+  return `${m.band} match`;
+}
+
+async function fetchMatched() {
+  if (selectedCandidateIds.value.length === 0) { matchedJobs.value = []; return; }
+  matchLoading.value = true;
+  try {
+    const { data } = await api.get('/jobs/with-matches', {
+      params: { candidateIds: selectedCandidateIds.value.join(','), minScore: minScore.value },
+      headers,
+    });
+    // server returns [{ job, matches, bestScore }]; flatten into jobs with matches attached
+    matchedJobs.value = (data.data || []).map((row: any) => ({ ...row.job, matches: row.matches }));
+  } catch (e) {
+    console.error('match fetch failed', e);
+    matchedJobs.value = [];
+  } finally {
+    matchLoading.value = false;
+  }
+}
+
+// Re-fetch whenever selection or threshold changes (debounced for slider)
+let matchTimer: ReturnType<typeof setTimeout> | null = null;
+watch([selectedCandidateIds, minScore], () => {
+  if (matchTimer) clearTimeout(matchTimer);
+  matchTimer = setTimeout(fetchMatched, 200);
+}, { deep: true });
 
 const form = ref({ title: '', company: '', url: '', description: '', location: '', salary: '', requirements: '' });
 
